@@ -1,0 +1,23 @@
+# ─── CyberBridge Requirements ─────────────────────────────────────────────────
+
+# HTTP transport (replaces rpyc + UDP)
+flask
+werkzeug
+requests
+
+# System info
+psutil
+cryptography
+
+# Camera / Screenshot / Image
+opencv-python
+Pillow
+
+# Audio
+pyaudio
+
+# Windows-specific
+pywin32
+
+# Build tools
+pyinstaller
