@@ -247,6 +247,7 @@ missing module named simplejson - imported by requests.compat (conditional, opti
 missing module named chardet - imported by requests.compat (optional), requests (optional), requests.packages (optional)
 missing module named socks - imported by urllib3.contrib.socks (optional)
 missing module named 'win32com.gen_py' - imported by win32com (conditional, optional)
+missing module named 'core.watchdog' - imported by C:\Users\loredounipass\Downloads\CyberBridge\CyberBridge\client\service.py (delayed, optional)
 missing module named core - imported by C:\Users\loredounipass\Downloads\CyberBridge\CyberBridge\client\service.py (delayed, optional)
 missing module named _scproxy - imported by urllib.request (conditional)
 missing module named config - imported by C:\Users\loredounipass\Downloads\CyberBridge\CyberBridge\client\service.py (optional)

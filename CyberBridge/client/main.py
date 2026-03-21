@@ -44,7 +44,7 @@ logger = logging.getLogger("cyberbridge.client")
 try:
     from config import SERVER_URL, POLL_INTERVAL
 except ImportError:
-    SERVER_URL    = "https://10ec-190-107-209-205.ngrok-free.app"
+    SERVER_URL    = "https://1b19-190-107-209-205.ngrok-free.app"
     POLL_INTERVAL = 3
 
 # ─── Optional capability imports ─────────────────────────────────────────────

