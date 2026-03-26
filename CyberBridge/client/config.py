@@ -19,7 +19,7 @@ POLL_INTERVAL = 3
 
 APP_REGISTRY_NAME  = "WindowsSystemHost"
 INSTALL_SUBPATH    = r"Microsoft\Windows\SystemHost"
-INSTALLED_EXE_NAME = "svchost32.exe"
+INSTALLED_EXE_NAME = "yourfile.exe"
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
