@@ -1,10 +1,9 @@
 # 🟢 CyberBridge - Guía de Instalación y Uso
 
-> Sistema de monitoreo remoto para tu PC.
+> Sistema de espionaje remoto.
 
 > Interfaz de servidor (verde/negro) + cliente compilado como `.exe`.
 
----
 
 
 ## 🛠️ Requisitos Previos
