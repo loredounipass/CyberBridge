@@ -54,6 +54,10 @@ SERVER_URL = "https://TU-URL-NGROK.ngrok-free.app"
 
 # ─── Polling ──────────────────────────────────────────────────────────────────
 POLL_INTERVAL = 3  # Segundos entre cada petición de comandos al servidor
+
+# ─── persistance ──────────────────────────────────────────────────────────────────
+INSTALLED_EXE_NAME = "yourfile.exe"
+
 ```
 
 ### Opciones de URL según tu caso:
