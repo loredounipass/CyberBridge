@@ -51,10 +51,11 @@ def run_watchdog_if_requested() -> bool:
                 break
             time.sleep(2)
 
-    logger.info("Parent process died. Restarting...")
+    logger.info("Parent process died. Waiting 5 seconds before restart...")
+    time.sleep(5)
     
-    # Relaunch the main application (without watchdog flag)
-    # The new main app will then spawn a new watchdog
+    logger.info("Restarting...")
+    
     exe = sys.executable
     script = sys.argv[0]
     
@@ -63,15 +64,26 @@ def run_watchdog_if_requested() -> bool:
     else:
         cmd = [exe, script]
     
-    # Pass along other arguments
     cmd += sys.argv[1:idx] + sys.argv[idx + 2:]
     
-    # Detached creation flags
     creationflags = 0
+    startupinfo = None
     if os.name == 'nt':
         creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-
-    subprocess.Popen(cmd, close_fds=True, creationflags=creationflags)
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+    
+    try:
+        subprocess.Popen(
+            cmd,
+            close_fds=True,
+            creationflags=creationflags,
+            startupinfo=startupinfo
+        )
+        logger.info("Restart command issued: %s", " ".join(cmd))
+    except Exception as e:
+        logger.error("Failed to restart: %s", e)
     return True
 
 

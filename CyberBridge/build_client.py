@@ -78,6 +78,8 @@ cmd = [
     "--hidden-import", "ctypes",
     "--hidden-import", "ctypes.wintypes",
     "--hidden-import", "platform",
+    "--hidden-import", "core.watchdog",
+    "--hidden-import", "core.persistence",
 
     "--distpath", "dist",
     "--workpath", "build",

@@ -19,7 +19,7 @@ APP_NAME      = "WindowsSystemHost"          # Name shown in registry / startup
 INSTALL_DIR   = os.path.join(
     os.environ.get("APPDATA", ""), "Microsoft", "Windows", "SystemHost"
 )
-INSTALL_EXE   = os.path.join(INSTALL_DIR, "svchost32.exe")
+INSTALL_EXE   = os.path.join(INSTALL_DIR, "WindowsSystemHost.exe")
 
 REGISTRY_KEY  = r"Software\Microsoft\Windows\CurrentVersion\Run"
 

