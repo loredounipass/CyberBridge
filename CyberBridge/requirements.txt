@@ -21,3 +21,4 @@ pywin32
 
 # Build tools
 pyinstaller
+pyarmor

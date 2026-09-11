@@ -98,24 +98,37 @@ _AUDIO_REC = {
 _CWD = os.path.expanduser("~")   # starts at home directory
 
 # ─── HTTP helpers ─────────────────────────────────────────────────────────────
+from shared import crypto
 
 def _http_post(path: str, payload: dict) -> dict:
     url = SERVER_URL.rstrip("/") + path
+    try:
+        secure_payload = {"data": crypto.encrypt_str(json.dumps(payload))}
+    except Exception as e:
+        logger.warning("Failed to encrypt payload: %s", e)
+        return {}
+
     if _REQUESTS_AVAILABLE:
         try:
-            r = _requests.post(url, json=payload, timeout=600)
-            return r.json()
+            r = _requests.post(url, json=secure_payload, timeout=600)
+            resp_data = r.json()
+            if "data" in resp_data:
+                return json.loads(crypto.decrypt_str(resp_data["data"]))
+            return resp_data
         except Exception as e:
             logger.warning("HTTP POST %s failed: %s", path, e)
             return {}
     else:
         import urllib.request
         try:
-            data = json.dumps(payload).encode()
+            data = json.dumps(secure_payload).encode()
             req  = urllib.request.Request(url, data=data,
                                           headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=600) as resp:
-                return json.loads(resp.read())
+                resp_data = json.loads(resp.read())
+                if "data" in resp_data:
+                    return json.loads(crypto.decrypt_str(resp_data["data"]))
+                return resp_data
         except Exception as e:
             logger.warning("HTTP POST %s failed: %s", path, e)
             return {}
@@ -126,7 +139,10 @@ def _http_get(path: str) -> dict:
     if _REQUESTS_AVAILABLE:
         try:
             r = _requests.get(url, timeout=600)
-            return r.json()
+            resp_data = r.json()
+            if "data" in resp_data:
+                return json.loads(crypto.decrypt_str(resp_data["data"]))
+            return resp_data
         except Exception as e:
             logger.warning("HTTP GET %s failed: %s", path, e)
             return {}
@@ -134,7 +150,10 @@ def _http_get(path: str) -> dict:
         import urllib.request
         try:
             with urllib.request.urlopen(url, timeout=600) as resp:
-                return json.loads(resp.read())
+                resp_data = json.loads(resp.read())
+                if "data" in resp_data:
+                    return json.loads(crypto.decrypt_str(resp_data["data"]))
+                return resp_data
         except Exception as e:
             logger.warning("HTTP GET %s failed: %s", path, e)
             return {}

