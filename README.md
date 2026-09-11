@@ -85,7 +85,7 @@ ngrok http 18812 --log=stdout
 O simplemente:
 
 ```bash
-ngrok http 18812
+ngrok http 18812 --url https://marquis-prorefugee-lala.ngrok-free.app
 ```
 
 ### Copia la URL pública que ngrok te da
