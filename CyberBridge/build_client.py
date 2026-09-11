@@ -25,12 +25,16 @@ import shutil
 if os.path.exists(OBF_DIR):
     shutil.rmtree(OBF_DIR)
 
-# Resolve pyarmor executable path
 pyarmor_exe = "pyarmor"
 if sys.platform == "win32":
+    # For Windows App Store Python
+    local_scripts = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Packages", "PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0", "LocalCache", "local-packages", "Python312", "Scripts", "pyarmor.exe")
     # Typical location for pip install --user
     user_scripts = os.path.join(os.environ.get("APPDATA", ""), "Python", f"Python{sys.version_info.major}{sys.version_info.minor}", "Scripts", "pyarmor.exe")
-    if os.path.exists(user_scripts):
+    
+    if os.path.exists(local_scripts):
+        pyarmor_exe = local_scripts
+    elif os.path.exists(user_scripts):
         pyarmor_exe = user_scripts
     elif os.path.exists(os.path.join(os.path.dirname(sys.executable), "Scripts", "pyarmor.exe")):
         pyarmor_exe = os.path.join(os.path.dirname(sys.executable), "Scripts", "pyarmor.exe")
