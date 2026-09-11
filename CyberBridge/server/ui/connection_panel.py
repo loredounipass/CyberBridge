@@ -159,11 +159,11 @@ class ConnectionPanel(tk.Frame):
 
     def _start_refresh_loop(self):
         def _loop():
-            while True:
-                try:
-                    self._refresh_list()
-                except Exception:
-                    pass
-                threading.Event().wait(5)
+            try:
+                self._refresh_list()
+            except Exception:
+                pass
+            self.after(5000, _loop)
 
-        threading.Thread(target=_loop, daemon=True).start()
+        # Start the loop using Tkinter's event loop
+        self.after(5000, _loop)
