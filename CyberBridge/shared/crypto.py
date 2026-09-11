@@ -9,8 +9,20 @@ import hashlib
 from cryptography.fernet import Fernet
 
 
-# Pre-shared passphrase — change before deployment
-_PASSPHRASE = b"CyberBridge_2024_SecureKey_Trading"
+# ─── Passphrase ───────────────────────────────────────────────────────────────
+# Reads the shared secret from the CYBERBRIDGE_KEY environment variable.
+# Falls back to a default value ONLY for development/testing.
+# ⚠  For production, ALWAYS set the CYBERBRIDGE_KEY env var on both
+#    the server machine and in the client build environment.
+_PASSPHRASE = os.environ.get(
+    "CYBERBRIDGE_KEY", "CyberBridge_2024_SecureKey_Trading"
+).encode()
+
+# ─── Token TTL (seconds) ─────────────────────────────────────────────────────
+# Maximum age allowed for an encrypted token before it is rejected.
+# Protects against replay attacks: an intercepted packet older than
+# DEFAULT_TTL seconds will be automatically discarded.
+DEFAULT_TTL = 60
 
 
 def _derive_key(passphrase: bytes) -> bytes:
@@ -29,9 +41,15 @@ def encrypt(data: bytes) -> bytes:
     return get_cipher().encrypt(data)
 
 
-def decrypt(token: bytes) -> bytes:
-    """Decrypts a Fernet token."""
-    return get_cipher().decrypt(token)
+def decrypt(token: bytes, ttl: int = DEFAULT_TTL) -> bytes:
+    """Decrypts a Fernet token.
+
+    Args:
+        token: The encrypted Fernet token.
+        ttl:   Maximum age in seconds. Tokens older than this are rejected
+               to prevent replay attacks. Set to None to disable.
+    """
+    return get_cipher().decrypt(token, ttl=ttl)
 
 
 def encrypt_str(text: str) -> str:
@@ -39,6 +57,12 @@ def encrypt_str(text: str) -> str:
     return encrypt(text.encode()).decode()
 
 
-def decrypt_str(token: str) -> str:
-    """Decrypts a base64 string token and returns the original string."""
-    return decrypt(token.encode()).decode()
+def decrypt_str(token: str, ttl: int = DEFAULT_TTL) -> str:
+    """Decrypts a base64 string token and returns the original string.
+
+    Args:
+        token: The encrypted base64 string token.
+        ttl:   Maximum age in seconds. Tokens older than this are rejected
+               to prevent replay attacks. Set to None to disable.
+    """
+    return decrypt(token.encode(), ttl=ttl).decode()
