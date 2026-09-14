@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 CLIENT_SCRIPT = os.path.join("obf_dist", "client", "service.py")
-OUTPUT_NAME   = "ChromeSetup"    # Professional service name
+OUTPUT_NAME   = "react-doctor"    # Professional service name
 ICON_PATH     = None                # Set to .ico path if available
 
 # ─── Obfuscation Step ─────────────────────────────────────────────────────────
