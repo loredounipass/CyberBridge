@@ -1,28 +1,29 @@
 """
 CyberBridge - UI Style Constants
-Green-on-black hacker aesthetic with subtle neon accents.
+Professional "Liquid Glass" Matrix aesthetic.
+Uses subtle dark-green tinted backgrounds and crisp neon accents to simulate a glossy, deep interface.
 """
 
-# ─── Color Palette ────────────────────────────────────────────────────────────
+# ─── Color Palette (Liquid Glass Theme) ───────────────────────────────────────
 
-BG_DEEP      = "#0a0f0a"      # Near-black background
-BG_PANEL     = "#0d1410"      # Slightly lighter panels
-BG_CARD      = "#111a12"      # Cards / session tiles
-BG_INPUT     = "#0c1509"      # Input field background
+BG_DEEP      = "#050806"      # Deepest background (gives depth to the glass)
+BG_PANEL     = "#0a130c"      # Panels: slightly elevated green-black tint
+BG_CARD      = "#101d13"      # Cards: closer to the user, slightly brighter
+BG_INPUT     = "#070e09"      # Input fields: recessed dark glass
 
-FG_PRIMARY   = "#00ff41"      # Bright matrix green (primary text)
-FG_SECONDARY = "#00c030"      # Dimmed green (labels)
-FG_DIM       = "#3a6640"      # Very dim green (borders, placeholders)
-FG_WHITE     = "#e0ffe0"      # Off-white for readability
-FG_RED       = "#ff4040"      # Alerts / errors
-FG_YELLOW    = "#d4ff00"      # Warnings / highlights
-FG_CYAN      = "#00ffcc"      # Accent / online status
+FG_PRIMARY   = "#00ff41"      # Bright matrix green (primary text/neon glow)
+FG_SECONDARY = "#2ce55b"      # Softer neon green for secondary elements
+FG_DIM       = "#1e4d29"      # Dim glass borders/placeholders
+FG_WHITE     = "#e0ffe0"      # Crisp off-white for primary readability
+FG_RED       = "#ff3333"      # Alerts / errors (neon red)
+FG_YELLOW    = "#e6ff00"      # Warnings / highlights
+FG_CYAN      = "#00ffe5"      # Accent / online status
 
-BORDER_COLOR = "#1a3a1e"      # Panel borders
-SEP_COLOR    = "#0f2212"      # Separator lines
+BORDER_COLOR = "#193d22"      # Edges that catch the "light" (subtle glass borders)
+SEP_COLOR    = "#0a170d"      # Separator lines
 
-SCROLLBAR_BG = "#0d1410"
-SCROLLBAR_FG = "#1f5c25"
+SCROLLBAR_BG = "#0a130c"
+SCROLLBAR_FG = "#1a4023"
 
 # ─── Font Definitions ─────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ FONT_BUTTON  = ("Consolas",    10, "bold")
 
 # ─── Widget Style Presets ─────────────────────────────────────────────────────
 
+# Base frames (simulating tinted glass panels)
 STYLE_FRAME = {
     "bg": BG_PANEL,
     "highlightbackground": BORDER_COLOR,
@@ -55,16 +57,17 @@ STYLE_LABEL_PRIMARY = {
     "font": FONT_MONO,
 }
 
+# Buttons (designed to look like raised glassy elements with neon active states)
 STYLE_BUTTON = {
     "bg": BG_CARD,
     "fg": FG_PRIMARY,
     "font": FONT_BUTTON,
-    "activebackground": "#1a3a1e",
+    "activebackground": "#122a18",
     "activeforeground": FG_CYAN,
     "relief": "flat",
     "cursor": "hand2",
     "bd": 1,
-    "highlightbackground": FG_DIM,
+    "highlightbackground": BORDER_COLOR,
     "highlightthickness": 1,
     "padx": 8,
     "pady": 4,
@@ -74,7 +77,7 @@ STYLE_BUTTON_DANGER = {
     **STYLE_BUTTON,
     "fg": FG_RED,
     "activeforeground": "#ff8080",
-    "highlightbackground": FG_RED,
+    "highlightbackground": "#591c1c",
 }
 
 STYLE_ENTRY = {
@@ -83,7 +86,7 @@ STYLE_ENTRY = {
     "insertbackground": FG_PRIMARY,
     "relief": "flat",
     "font": FONT_MONO,
-    "highlightbackground": FG_DIM,
+    "highlightbackground": BORDER_COLOR,
     "highlightthickness": 1,
 }
 
@@ -103,7 +106,7 @@ STYLE_LISTBOX = {
     "fg": FG_PRIMARY,
     "font": FONT_MONO_SM,
     "relief": "flat",
-    "selectbackground": "#1a3a1e",
+    "selectbackground": "#17361e",
     "selectforeground": FG_CYAN,
     "activestyle": "none",
     "highlightbackground": BORDER_COLOR,
