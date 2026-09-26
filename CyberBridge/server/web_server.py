@@ -236,7 +236,9 @@ class WebServer:
                         self.socketio.emit('bottom_update', {'text':f'CyberBridge Server | {self.protocol.upper()} | {proxy}: {url}'})
                     def on_err(err):
                         self.socketio.emit('tunnel_error', {'error':err}, room=sid)
-                    self.proxy_mgr.start_proxy(proxy, 18812, on_url_found=on_url, on_error=on_err)
+                    def on_log(line):
+                        self.socketio.emit('tunnel_log', {'line':line}, room=sid)
+                    self.proxy_mgr.start_proxy(proxy, 18812, on_url_found=on_url, on_error=on_err, on_log=on_log)
                 except Exception as e:
                     self.socketio.emit('tunnel_error', {'error':str(e)}, room=sid)
             threading.Thread(target=_run, daemon=True).start()

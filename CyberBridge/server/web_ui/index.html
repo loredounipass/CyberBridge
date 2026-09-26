@@ -42,7 +42,7 @@
         <button class="tab" data-tab="camera">◉ CAMERA</button>
         <button class="tab" data-tab="screenshot">⎙ SCREENSHOT</button>
         <button class="tab" data-tab="audio">🎙 AUDIO</button>
-        <button class="tab" data-tab="matrix">◈ MATRIX</button>
+        <button class="tab" data-tab="connections">◈ CONEXIONES</button>
       </div>
       <div class="tab-content">
         <section id="terminal" class="tab-pane active">
@@ -102,6 +102,7 @@
           <div class="media-controls">
             <button id="cam-start" class="btn">▶ START</button>
             <button id="cam-stop" class="btn danger">■ STOP</button>
+            <button id="cam-snap" class="btn">📸 SNAP</button>
           </div>
         </section>
         <section id="screenshot" class="tab-pane">
@@ -138,8 +139,11 @@
             <button id="aud-record" class="btn">⏺ RECORD</button>
           </div>
         </section>
-        <section id="matrix" class="tab-pane">
-          <canvas id="matrix-canvas"></canvas>
+        <section id="connections" class="tab-pane">
+          <div class="pane-header">◈ CONEXIONES / TÚNELES</div>
+          <div class="log-box">
+            <pre id="tunnel-log">Esperando túnel...</pre>
+          </div>
         </section>
       </div>
     </main>

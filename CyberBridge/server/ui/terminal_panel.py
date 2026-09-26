@@ -19,6 +19,7 @@ class TerminalPanel(tk.Frame):
         self._session     = None
         self._history     = []
         self._hist_idx    = -1
+        self._cmd_lock    = threading.Lock()
         self._build()
 
     # ─── Build ────────────────────────────────────────────────────────────────
@@ -147,23 +148,24 @@ class TerminalPanel(tk.Frame):
         threading.Thread(target=self._run_cmd, args=(cmd,), daemon=True).start()
 
     def _run_cmd(self, cmd: str):
-        try:
-            if not self._session.ensure_connected():
-                self._append_output("Cannot connect to client.\n", is_err=True)
-                return
-            result = self._session.execute_command(cmd)
-            # Update prompt with current working directory if provided
-            cwd = result.get("cwd")
-            if cwd:
-                self._prompt_lbl.config(text=f"{cwd}> ")
-            self._append_output(result.get("stdout", ""))
-            if result.get("stderr"):
-                self._append_output(result["stderr"], is_err=True)
-            rc = result.get("returncode", 0)
-            if rc != 0:
-                self._write(f"[exit {rc}]\n", "err")
-        except Exception as e:
-            self._append_output(f"Error: {e}\n", is_err=True)
+        with self._cmd_lock:
+            try:
+                if not self._session.ensure_connected():
+                    self._append_output("Cannot connect to client.\n", is_err=True)
+                    return
+                result = self._session.execute_command(cmd)
+                # Update prompt with current working directory if provided
+                cwd = result.get("cwd")
+                if cwd:
+                    self._prompt_lbl.config(text=f"{cwd}> ")
+                self._append_output(result.get("stdout", ""))
+                if result.get("stderr"):
+                    self._append_output(result["stderr"], is_err=True)
+                rc = result.get("returncode", 0)
+                if rc != 0:
+                    self._write(f"[exit {rc}]\n", "err")
+            except Exception as e:
+                self._append_output(f"Error: {e}\n", is_err=True)
 
     def _hist_up(self, event):
         if self._history and self._hist_idx > 0:

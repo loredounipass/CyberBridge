@@ -19,7 +19,7 @@ class ProxyManager:
         self._current_url = None
         self.current_proxy = "Local (Ninguno)"
         
-    def start_proxy(self, proxy_type: str, port: int, on_url_found=None, on_error=None):
+    def start_proxy(self, proxy_type: str, port: int, on_url_found=None, on_error=None, on_log=None):
         """Starts the selected proxy pointing to the local port."""
         self.stop_proxy()
         self.current_proxy = proxy_type
@@ -32,7 +32,6 @@ class ProxyManager:
         def _run():
             cmd = []
             if proxy_type == "Cloudflare Tunnels":
-                # Find cloudflared executable (check common absolute paths if not in PATH)
                 exe_path = "cloudflared"
                 if os.name == 'nt':
                     paths = [
@@ -46,7 +45,6 @@ class ProxyManager:
                             break
                 cmd = [exe_path, "tunnel", "--url", f"http://localhost:{port}"]
             elif proxy_type == "Ngrok":
-                # User's specific ngrok static URL. We add --log=stdout to prevent interactive TUI from hanging the subprocess.
                 cmd = [
                     "ngrok", "http", str(port), 
                     "--url", "https://marquis-prorefugee-lala.ngrok-free.app", 
@@ -56,24 +54,40 @@ class ProxyManager:
                 return
 
             try:
-                # To open a visible CMD window, we use 'start cmd /k' on Windows
+                creation_flags = 0
                 if os.name == 'nt':
-                    # We safely convert the command list to a string handling spaces in paths
-                    cmd_str = subprocess.list2cmdline(cmd)
-                    # We launch it in a new visible console
-                    self._process = subprocess.Popen(f'start "CyberBridge Proxy" cmd /k "{cmd_str}"', shell=True)
-                else:
-                    self._process = subprocess.Popen(cmd)
+                    creation_flags = subprocess.CREATE_NO_WINDOW
+                self._process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    creationflags=creation_flags
+                )
 
-                # Since we are opening a separate CMD window, we can't easily capture its stdout in real-time.
-                # So we update the UI directly based on the proxy type.
-                if proxy_type == "Ngrok":
-                    if on_url_found:
-                        on_url_found("https://marquis-prorefugee-lala.ngrok-free.app")
-                elif proxy_type == "Cloudflare Tunnels":
-                    if on_url_found:
-                        on_url_found("(Revisa la ventana de CMD para copiar tu enlace .trycloudflare.com)")
-                            
+                # Stream logs to UI
+                def _reader():
+                    try:
+                        for line in self._process.stdout:
+                            line = line.rstrip()
+                            if on_log:
+                                on_log(line)
+                            # Detect URL from ngrok log
+                            if proxy_type == "Ngrok" and "started tunnel" in line:
+                                m = re.search(r'url=([^\s]+)', line)
+                                if m and on_url_found:
+                                    url = m.group(1)
+                                    on_url_found(url)
+                    except Exception as e:
+                        logger.warning(f"Proxy log reader error: {e}")
+
+                threading.Thread(target=_reader, daemon=True).start()
+
+                if proxy_type == "Ngrok" and on_url_found:
+                    # Fallback immediate URL
+                    on_url_found("https://marquis-prorefugee-lala.ngrok-free.app")
+                        
             except FileNotFoundError:
                 msg = f"No se encontró el ejecutable de {proxy_type}. Asegúrate de que esté instalado y agregado al PATH."
                 logger.error(msg)

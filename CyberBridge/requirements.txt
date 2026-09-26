@@ -16,6 +16,7 @@ cryptography
 # Camera / Screenshot / Image
 opencv-python
 Pillow
+mss
 
 # Audio
 pyaudio

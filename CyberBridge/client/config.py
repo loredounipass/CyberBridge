@@ -13,7 +13,7 @@ SERVER_URL = "https://marquis-prorefugee-lala.ngrok-free.app"
 # ─── Polling ──────────────────────────────────────────────────────────────────
 
 # Segundos entre cada petición de comandos al servidor
-POLL_INTERVAL = 3
+POLL_INTERVAL = 0.2
 
 # ─── Persistence ──────────────────────────────────────────────────────────────
 

@@ -37,8 +37,11 @@ sys.path.insert(0, os.path.abspath(_ROOT))
 sys.path.insert(0, os.path.abspath(_BASE))
 
 # ─── Logging (silent — file only) ────────────────────────────────────────────
-LOG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
-                       "Microsoft", "Logs")
+if os.name == "nt":
+    LOG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
+                           "Microsoft", "Logs")
+else:
+    LOG_DIR = os.path.join(os.path.expanduser("~"), ".cyberbridge", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 logging.basicConfig(
