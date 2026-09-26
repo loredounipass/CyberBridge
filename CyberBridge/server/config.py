@@ -1,33 +1,36 @@
 """
 CyberBridge - Server Configuration
+Reads from environment variables with sensible defaults.
 """
+
+import os
 
 # ─── Network ──────────────────────────────────────────────────────────────────
 
 # IP address this server listens on (0.0.0.0 = all interfaces)
-SERVER_BIND_HOST = "0.0.0.0"
+SERVER_BIND_HOST = os.environ.get("SERVER_BIND_HOST", "0.0.0.0")
 
 # HTTP port for client communication (expose this via ngrok)
-HTTP_PORT = 18812
+HTTP_PORT = int(os.environ.get("HTTP_PORT", 18812))
 
 # ─── Timeouts ─────────────────────────────────────────────────────────────────
 
 # Seconds before a client is considered IDLE (no poll received)
-IDLE_TIMEOUT = 20
+IDLE_TIMEOUT = int(os.environ.get("IDLE_TIMEOUT", 20))
 
 # Seconds before a client is considered OFFLINE
-OFFLINE_TIMEOUT = 60
+OFFLINE_TIMEOUT = int(os.environ.get("OFFLINE_TIMEOUT", 60))
 
 # Command timeout (seconds)
-CMD_TIMEOUT = 60
+CMD_TIMEOUT = int(os.environ.get("CMD_TIMEOUT", 60))
 
 # ─── UI ───────────────────────────────────────────────────────────────────────
 
 # Dashboard window title
-WINDOW_TITLE = "CyberBridge  v1.0  ▮  Remote Monitoring Station"
+WINDOW_TITLE = os.environ.get("WINDOW_TITLE", "CyberBridge  v1.0  ▮  Remote Monitoring Station")
 
 # Camera refresh rate in milliseconds (~6 FPS at 150ms)
-CAMERA_REFRESH_MS = 150
+CAMERA_REFRESH_MS = int(os.environ.get("CAMERA_REFRESH_MS", 150))
 
 # System info auto-refresh interval in seconds
-SYSINFO_REFRESH_SEC = 5
+SYSINFO_REFRESH_SEC = int(os.environ.get("SYSINFO_REFRESH_SEC", 5))

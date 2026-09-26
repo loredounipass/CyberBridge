@@ -14,6 +14,7 @@ import queue
 from typing import Dict, Optional, Callable
 
 from server.core.errors import ProtocolNotSupportedError, NetworkBindError
+from server.config import IDLE_TIMEOUT, OFFLINE_TIMEOUT, HTTP_PORT, SERVER_BIND_HOST
 
 logger = logging.getLogger("cyberbridge.server")
 
@@ -23,8 +24,8 @@ logger = logging.getLogger("cyberbridge.server")
 class ClientSession:
     """Represents a remote client registered with the server."""
 
-    IDLE_TIMEOUT    = 20   # last_seen > 20s → IDLE
-    OFFLINE_TIMEOUT = 60   # last_seen > 60s → OFFLINE
+    IDLE_TIMEOUT    = IDLE_TIMEOUT   # last_seen > 20s → IDLE
+    OFFLINE_TIMEOUT = OFFLINE_TIMEOUT   # last_seen > 60s → OFFLINE
 
     def __init__(self, client_id: str, hostname: str, ip: str, port: int = 0):
         self.client_id   = client_id
@@ -216,6 +217,13 @@ class ClientSession:
         except Exception:
             return b""
 
+    def cleanup_old_client(self) -> dict:
+        try:
+            r = self._enqueue("cleanup_old_client", timeout=30)
+            return r.get("value", {})
+        except Exception as e:
+            return {"error": str(e)}
+
     def list_directory(self, path: str) -> list:
         try:
             r = self._enqueue("list_directory", {"path": path}, timeout=15)
@@ -277,7 +285,7 @@ class BaseSessionManager:
 class HTTPSessionManager(BaseSessionManager):
     """Manages client sessions via HTTP Polling."""
 
-    HTTP_PORT = 18812
+    HTTP_PORT = HTTP_PORT
 
     def start(self):
         self._running = True
@@ -286,8 +294,8 @@ class HTTPSessionManager(BaseSessionManager):
         def _serve():
             try:
                 from werkzeug.serving import make_server
-                srv = make_server("0.0.0.0", self.HTTP_PORT, app)
-                logger.info("HTTP server listening on port %d", self.HTTP_PORT)
+                srv = make_server(SERVER_BIND_HOST, self.HTTP_PORT, app)
+                logger.info("HTTP server listening on %s:%d", SERVER_BIND_HOST, self.HTTP_PORT)
                 srv.serve_forever()
             except Exception as e:
                 # Proper professional error wrap although thrown in thread
@@ -299,8 +307,16 @@ class HTTPSessionManager(BaseSessionManager):
 
     def _create_flask_app(self):
         from flask import Flask, request, jsonify
+        from flask_cors import CORS
         from shared import crypto
+        import os
         app = Flask("cyberbridge")
+        
+        # CORS configuration
+        cors_origins = os.environ.get("CORS_ORIGINS", "*")
+        if cors_origins != "*":
+            cors_origins = [o.strip() for o in cors_origins.split(",")]
+        CORS(app, resources={r"/*": {"origins": cors_origins}})
 
         import logging as _lg
         _lg.getLogger("werkzeug").setLevel(_lg.WARNING)

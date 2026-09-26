@@ -4,6 +4,10 @@
 flask
 werkzeug
 requests
+flask-socketio
+python-socketio
+flask-cors
+python-dotenv
 
 # System info
 psutil

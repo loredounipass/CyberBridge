@@ -143,7 +143,7 @@ class FilePanel(tk.Frame):
             return
 
         local = self._up_local_var.get()
-        remote = self._up_remote_var.get()
+        remote = os.path.normpath(self._up_remote_var.get().replace("/", os.sep))
 
         if not local or not os.path.exists(local):
             self._log("Error: Invalid local file", "error")
@@ -151,6 +151,11 @@ class FilePanel(tk.Frame):
         if not remote:
             self._log("Error: Invalid remote path", "error")
             return
+
+        # If remote looks like a directory, append filename
+        remote_base = os.path.basename(remote)
+        if remote.endswith(os.sep) or remote_base == '' or '.' not in remote_base:
+            remote = os.path.join(remote, os.path.basename(local))
 
         self._log(f"Uploading {os.path.basename(local)} -> {remote} ...", "info")
 
@@ -172,7 +177,7 @@ class FilePanel(tk.Frame):
             return
 
         remote = self._down_remote_var.get()
-        local_dir = self._down_local_var.get()
+        local_dir = os.path.normpath(self._down_local_var.get().replace("/", os.sep))
 
         if not remote:
             self._log("Error: Invalid remote file path", "error")
@@ -182,10 +187,11 @@ class FilePanel(tk.Frame):
             return
 
         # Determine local filename
-        basename = os.path.basename(remote.replace("\\", "/"))
-        if not basename:
+        remote_norm = remote.replace("/", os.sep)
+        basename = os.path.basename(remote_norm)
+        if not basename or basename == os.sep:
             basename = "downloaded_file.dat"
-        local_path = os.path.join(local_dir, basename)
+        local_path = os.path.normpath(os.path.join(local_dir, basename))
 
         self._log(f"Downloading {remote} -> {local_path} ...", "info")
 

@@ -7,8 +7,18 @@ import tkinter as tk
 import threading
 import io
 import time
+import sys
+import os
 
 from .styles import *
+
+_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
+sys.path.insert(0, _ROOT)
+
+try:
+    from server.config import CAMERA_REFRESH_MS
+except Exception:
+    CAMERA_REFRESH_MS = 150
 
 try:
     from PIL import Image, ImageTk
@@ -20,7 +30,7 @@ except ImportError:
 class CameraPanel(tk.Frame):
     """Shows a live camera feed from the selected client."""
 
-    _REFRESH_MS = 150   # ~6-7 FPS
+    _REFRESH_MS = CAMERA_REFRESH_MS   # ~6-7 FPS
 
     def __init__(self, parent, **kwargs):
         super().__init__(parent, bg=BG_DEEP, **kwargs)
