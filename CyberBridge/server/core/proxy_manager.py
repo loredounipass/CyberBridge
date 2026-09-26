@@ -30,43 +30,52 @@ class ProxyManager:
             return
             
         def _run():
+            cmd = []
             if proxy_type == "Cloudflare Tunnels":
-                # Cloudflared uses stderr for logging and generates a .trycloudflare.com URL
-                cmd = ["cloudflared", "tunnel", "--url", f"http://localhost:{port}"]
+                # Find cloudflared executable (check common absolute paths if not in PATH)
+                exe_path = "cloudflared"
+                if os.name == 'nt':
+                    paths = [
+                        r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
+                        r"C:\Program Files\cloudflared\cloudflared.exe",
+                        r"C:\Users\erick\Downloads\cloudflared-tunels\cloudflared-windows-386.exe"
+                    ]
+                    for p in paths:
+                        if os.path.exists(p):
+                            exe_path = p
+                            break
+                cmd = [exe_path, "tunnel", "--url", f"http://localhost:{port}"]
             elif proxy_type == "Ngrok":
-                cmd = ["ngrok", "http", str(port)]
+                # User's specific ngrok static URL. We add --log=stdout to prevent interactive TUI from hanging the subprocess.
+                cmd = [
+                    "ngrok", "http", str(port), 
+                    "--url", "https://marquis-prorefugee-lala.ngrok-free.app", 
+                    "--log=stdout"
+                ]
             else:
                 return
 
             try:
-                # Hide the console window on Windows
-                startupinfo = None
+                # To open a visible CMD window, we use 'start cmd /k' on Windows
                 if os.name == 'nt':
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    
-                # Combine stdout and stderr since cloudflared outputs to stderr
-                self._process = subprocess.Popen(
-                    cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.STDOUT, 
-                    text=True, 
-                    startupinfo=startupinfo
-                )
-                
-                # Regex to catch URLs from both Cloudflare and Ngrok
-                url_pattern = re.compile(r'https://[a-zA-Z0-9-]+\.(trycloudflare\.com|ngrok\.io|ngrok-free\.app)')
-                
-                for line in self._process.stdout:
-                    match = url_pattern.search(line)
-                    if match and not self._current_url:
-                        self._current_url = match.group(0)
-                        logger.info(f"[{proxy_type}] Tunnel URL found: {self._current_url}")
-                        if on_url_found:
-                            on_url_found(self._current_url)
+                    # We safely convert the command list to a string handling spaces in paths
+                    cmd_str = subprocess.list2cmdline(cmd)
+                    # We launch it in a new visible console
+                    self._process = subprocess.Popen(f'start "CyberBridge Proxy" cmd /k "{cmd_str}"', shell=True)
+                else:
+                    self._process = subprocess.Popen(cmd)
+
+                # Since we are opening a separate CMD window, we can't easily capture its stdout in real-time.
+                # So we update the UI directly based on the proxy type.
+                if proxy_type == "Ngrok":
+                    if on_url_found:
+                        on_url_found("https://marquis-prorefugee-lala.ngrok-free.app")
+                elif proxy_type == "Cloudflare Tunnels":
+                    if on_url_found:
+                        on_url_found("(Revisa la ventana de CMD para copiar tu enlace .trycloudflare.com)")
                             
             except FileNotFoundError:
-                msg = f"No se encontró el ejecutable de {proxy_type}. Asegúrate de que esté instalado y agregado al PATH del sistema."
+                msg = f"No se encontró el ejecutable de {proxy_type}. Asegúrate de que esté instalado y agregado al PATH."
                 logger.error(msg)
                 if on_error:
                     on_error(msg)

@@ -26,6 +26,7 @@ from server.ui.audio_panel      import AudioPanel
 from server.ui.file_panel       import FilePanel
 from server.core.session_manager import ProtocolFactory
 from server.core.errors         import ProtocolNotSupportedError, CyberBridgeError
+from server.core.proxy_manager  import ProxyManager
 
 
 # ─── Animated Matrix Rain Canvas ─────────────────────────────────────────────
@@ -102,6 +103,7 @@ class Dashboard:
         self._root    = tk.Tk()
         self._session = None
         self._mgr     = None
+        self._proxy_mgr = ProxyManager()
         self._current_protocol = "HTTP"
         self._setup_root()
         self._build_menu()
@@ -151,6 +153,11 @@ class Dashboard:
                      activebackground=BG_PANEL, activeforeground=FG_CYAN)
         mb.add_cascade(label="Protocolos", menu=pm)
         pm.add_command(label="Select Protocol...", command=self._open_protocols_window)
+
+        tm = tk.Menu(mb, tearoff=0, bg=BG_CARD, fg=FG_PRIMARY,
+                     activebackground=BG_PANEL, activeforeground=FG_CYAN)
+        mb.add_cascade(label="Túneles", menu=tm)
+        tm.add_command(label="Proxy / Tunnel Settings...", command=self._open_proxy_window)
 
         hm = tk.Menu(mb, tearoff=0, bg=BG_CARD, fg=FG_PRIMARY,
                      activebackground=BG_PANEL, activeforeground=FG_CYAN)
@@ -265,7 +272,14 @@ class Dashboard:
                                     command=self._open_protocols_window,
                                     bg=BG_DEEP, fg=FG_CYAN, font=FONT_STATUS,
                                     relief="flat", cursor="hand2", bd=0)
-        self._proto_btn.pack(side="right", padx=16, pady=2)
+        self._proto_btn.pack(side="right", padx=8, pady=2)
+
+        # Explicit button for Tunnels/Proxies
+        self._tunnel_btn = tk.Button(sb, text="⚙ TÚNELES",
+                                     command=self._open_proxy_window,
+                                     bg=BG_DEEP, fg=FG_CYAN, font=FONT_STATUS,
+                                     relief="flat", cursor="hand2", bd=0)
+        self._tunnel_btn.pack(side="right", padx=16, pady=2)
 
     # ─── Session management ───────────────────────────────────────────────────
 
@@ -439,6 +453,56 @@ class Dashboard:
         tk.Button(win, text="APPLY PROTOCOL", command=_apply, **STYLE_BUTTON).pack(pady=15)
 
 
+    def _open_proxy_window(self):
+        """Window to select and start an external Proxy/Tunnel."""
+        win = tk.Toplevel(self._root)
+        win.title("Select Proxy / Tunnel")
+        win.configure(bg=BG_PANEL)
+        win.geometry("420x240")
+        
+        tk.Label(win, text="Proxy & Tunnel Configuration",
+                 font=FONT_MONO_XL, bg=BG_PANEL, fg=FG_PRIMARY).pack(pady=15)
+                 
+        tk.Label(win, text="Expose your local server to the internet securely:",
+                 font=FONT_MONO, bg=BG_PANEL, fg=FG_SECONDARY).pack(pady=5)
+                 
+        # Proxy selection
+        proxy_var = tk.StringVar(value=self._proxy_mgr.current_proxy)
+        
+        frame = tk.Frame(win, bg=BG_PANEL)
+        frame.pack(pady=10)
+        
+        proxies = ["Cloudflare Tunnels", "Ngrok", "Local (Ninguno)"]
+        for p in proxies:
+            rb = tk.Radiobutton(frame, text=p, variable=proxy_var, value=p,
+                                bg=BG_PANEL, fg=FG_PRIMARY, selectcolor=BG_DEEP,
+                                activebackground=BG_PANEL, activeforeground=FG_CYAN,
+                                font=FONT_MONO)
+            rb.pack(side="left", padx=6)
+            
+        def _on_url_found(url):
+            self._bottom_lbl.config(
+                text=f"CyberBridge Server  |  {self._current_protocol.upper()}  |  {proxy_var.get()}: {url}",
+                fg=FG_CYAN
+            )
+            
+        def _on_error(err_msg):
+            messagebox.showerror("Proxy Error", err_msg, parent=self._root)
+            self._bottom_lbl.config(
+                text=f"CyberBridge Server  |  {self._current_protocol.upper()}  |  Proxy Error",
+                fg=FG_RED
+            )
+
+        def _apply():
+            selected = proxy_var.get()
+            win.destroy()
+            self._bottom_lbl.config(text=f"Iniciando túnel {selected}...", fg=FG_YELLOW)
+            # Assuming HTTP is on 18812 for now
+            self._proxy_mgr.start_proxy(selected, 18812, on_url_found=_on_url_found, on_error=_on_error)
+                
+        tk.Button(win, text="START TUNNEL", command=_apply, **STYLE_BUTTON).pack(pady=15)
+
+
     def _show_about(self):
         win = tk.Toplevel(self._root)
         win.title("About")
@@ -457,6 +521,8 @@ class Dashboard:
     def _on_close(self):
         if self._mgr:
             self._mgr.stop()
+        if self._proxy_mgr:
+            self._proxy_mgr.stop_proxy()
         self._root.destroy()
 
     def run(self):

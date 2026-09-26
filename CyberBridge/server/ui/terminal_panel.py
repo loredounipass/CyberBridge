@@ -54,25 +54,40 @@ class TerminalPanel(tk.Frame):
         self._output.tag_config("ts",     foreground=FG_DIM)
         self._output.tag_config("banner", foreground=FG_SECONDARY)
 
-        # ── Input bar ─────────────────────────────────────────────────────────
-        inf = tk.Frame(self, bg=BG_PANEL,
-                       highlightbackground=BORDER_COLOR, highlightthickness=1)
+        # ── Input container ───────────────────────────────────────────────────
+        inf = tk.Frame(self, bg=BG_PANEL)
         inf.pack(fill="x", padx=4, pady=(0, 4))
 
         self._prompt_lbl = tk.Label(inf, text="C:\\> ", font=FONT_MONO_LG,
                                     bg=BG_PANEL, fg=FG_CYAN)
         self._prompt_lbl.pack(side="left", padx=4)
 
+        # The actual input box simulating an entry with an embedded button
+        input_box = tk.Frame(inf, bg=BG_INPUT,
+                             highlightbackground=BORDER_COLOR, highlightthickness=1)
+        input_box.pack(side="left", fill="x", expand=True, padx=(0, 4), pady=4)
+
         self._cmd_var = tk.StringVar()
-        self._entry   = tk.Entry(inf, textvariable=self._cmd_var,
-                                 **STYLE_ENTRY)
-        self._entry.pack(side="left", fill="x", expand=True, padx=(0, 6), pady=4)
+        
+        # Override STYLE_ENTRY to remove its own border so it blends with input_box
+        entry_style = STYLE_ENTRY.copy()
+        entry_style["highlightthickness"] = 0
+        entry_style["bd"] = 0
+
+        self._entry = tk.Entry(input_box, textvariable=self._cmd_var, **entry_style)
+        self._entry.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=2)
         self._entry.bind("<Return>",   self._on_enter)
         self._entry.bind("<Up>",       self._hist_up)
         self._entry.bind("<Down>",     self._hist_down)
 
-        tk.Button(inf, text="► EXEC", command=self._on_enter,
-                  **STYLE_BUTTON).pack(side="right", padx=4, pady=4)
+        # The button inside the input box
+        btn_style = STYLE_BUTTON.copy()
+        btn_style["bg"] = BG_DEEP  # A slightly different shade so it looks like a button
+        btn_style["bd"] = 0
+        btn_style["highlightthickness"] = 0
+        
+        tk.Button(input_box, text="► EXEC", command=self._on_enter,
+                  **btn_style).pack(side="right", padx=2, pady=2)
 
     # ─── Session ──────────────────────────────────────────────────────────────
 
